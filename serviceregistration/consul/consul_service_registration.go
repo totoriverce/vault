@@ -1,6 +1,7 @@
 package consul
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -65,6 +66,7 @@ type serviceRegistration struct {
 	redirectPort        int64
 	serviceName         string
 	serviceTags         []string
+	serviceMeta         map[string]string
 	serviceAddress      *string
 	disableRegistration bool
 	checkTimeout        time.Duration
@@ -112,6 +114,22 @@ func NewServiceRegistration(conf map[string]string, logger log.Logger, state sr.
 	tags := conf["service_tags"]
 	if logger.IsDebug() {
 		logger.Debug("config service_tags set", "service_tags", tags)
+	}
+
+	// Get user-defined meta tags to attach to the registered service name
+	metaTagsJSON, ok := conf["service_meta"]
+	var metaTags = map[string]string{}
+	if ok {
+		metaTagList := []map[string]string{}
+		err := json.Unmarshal([]byte(metaTagsJSON), &metaTagList)
+		if err != nil {
+			return nil, errors.New("service tags must be a dictionary of string keys and values")
+		}
+		metaTags = metaTagList[0]
+
+		if logger.IsDebug() {
+			logger.Debug("config service_meta set", "service_meta", metaTags)
+		}
 	}
 
 	// Get the service-specific address to override the use of the HA redirect address
@@ -207,6 +225,7 @@ func NewServiceRegistration(conf map[string]string, logger log.Logger, state sr.
 		logger:              logger,
 		serviceName:         service,
 		serviceTags:         strutil.ParseDedupLowercaseAndSortStrings(tags, ","),
+		serviceMeta:         metaTags,
 		serviceAddress:      serviceAddr,
 		checkTimeout:        checkTimeout,
 		disableRegistration: disableRegistration,
@@ -476,6 +495,7 @@ func (c *serviceRegistration) reconcileConsul(registeredServiceID string) (servi
 		ID:                serviceID,
 		Name:              c.serviceName,
 		Tags:              tags,
+		Meta:              c.serviceMeta,
 		Port:              int(c.redirectPort),
 		Address:           serviceAddress,
 		EnableTagOverride: false,
