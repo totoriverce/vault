@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/sdk/helper/consts"
 )
 
@@ -369,8 +370,8 @@ func TestParsingRateOnly(t *testing.T) {
 }
 
 func TestParsingErrorCase(t *testing.T) {
-	var incorrectFormat = "foobar"
-	var _, _, err = parseRateLimit(incorrectFormat)
+	incorrectFormat := "foobar"
+	_, _, err := parseRateLimit(incorrectFormat)
 	if err == nil {
 		t.Error("Expected error, found no error")
 	}
@@ -426,6 +427,8 @@ func TestClone(t *testing.T) {
 		return true, nil
 	}
 	client1.SetCheckRetry(checkRetry)
+
+	client1.SetLogger(hclog.NewNullLogger())
 
 	client1.SetLimiter(5.0, 10)
 	client1.SetMaxRetries(5)

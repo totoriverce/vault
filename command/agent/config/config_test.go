@@ -82,12 +82,13 @@ func TestLoadConfigFile_AgentCache(t *testing.T) {
 			TLSSkipVerify:    true,
 			ClientCert:       "config_client_cert",
 			ClientKey:        "config_client_key",
+			Retry: &Retry{
+				NumRetries: 12,
+			},
 		},
 	}
 
-	config.Listeners[0].RawConfig = nil
-	config.Listeners[1].RawConfig = nil
-	config.Listeners[2].RawConfig = nil
+	config.Prune()
 	if diff := deep.Equal(config, expected); diff != nil {
 		t.Fatal(diff)
 	}
@@ -98,9 +99,7 @@ func TestLoadConfigFile_AgentCache(t *testing.T) {
 	}
 	expected.Vault.TLSSkipVerifyRaw = interface{}(true)
 
-	config.Listeners[0].RawConfig = nil
-	config.Listeners[1].RawConfig = nil
-	config.Listeners[2].RawConfig = nil
+	config.Prune()
 	if diff := deep.Equal(config, expected); diff != nil {
 		t.Fatal(diff)
 	}
@@ -158,8 +157,14 @@ func TestLoadConfigFile(t *testing.T) {
 				},
 			},
 		},
+		Vault: &Vault{
+			Retry: &Retry{
+				NumRetries: 12,
+			},
+		},
 	}
 
+	config.Prune()
 	if diff := deep.Equal(config, expected); diff != nil {
 		t.Fatal(diff)
 	}
@@ -169,6 +174,7 @@ func TestLoadConfigFile(t *testing.T) {
 		t.Fatalf("err: %s", err)
 	}
 
+	config.Prune()
 	if diff := deep.Equal(config, expected); diff != nil {
 		t.Fatal(diff)
 	}
@@ -203,8 +209,14 @@ func TestLoadConfigFile_Method_Wrapping(t *testing.T) {
 				},
 			},
 		},
+		Vault: &Vault{
+			Retry: &Retry{
+				NumRetries: 12,
+			},
+		},
 	}
 
+	config.Prune()
 	if diff := deep.Equal(config, expected); diff != nil {
 		t.Fatal(diff)
 	}
@@ -228,9 +240,14 @@ func TestLoadConfigFile_AgentCache_NoAutoAuth(t *testing.T) {
 				},
 			},
 		},
+		Vault: &Vault{
+			Retry: &Retry{
+				NumRetries: 12,
+			},
+		},
 	}
 
-	config.Listeners[0].RawConfig = nil
+	config.Prune()
 	if diff := deep.Equal(config, expected); diff != nil {
 		t.Fatal(diff)
 	}
@@ -316,9 +333,14 @@ func TestLoadConfigFile_AgentCache_AutoAuth_NoSink(t *testing.T) {
 			UseAutoAuthTokenRaw: true,
 			ForceAutoAuthToken:  false,
 		},
+		Vault: &Vault{
+			Retry: &Retry{
+				NumRetries: 12,
+			},
+		},
 	}
 
-	config.Listeners[0].RawConfig = nil
+	config.Prune()
 	if diff := deep.Equal(config, expected); diff != nil {
 		t.Fatal(diff)
 	}
@@ -355,9 +377,14 @@ func TestLoadConfigFile_AgentCache_AutoAuth_Force(t *testing.T) {
 			UseAutoAuthTokenRaw: "force",
 			ForceAutoAuthToken:  true,
 		},
+		Vault: &Vault{
+			Retry: &Retry{
+				NumRetries: 12,
+			},
+		},
 	}
 
-	config.Listeners[0].RawConfig = nil
+	config.Prune()
 	if diff := deep.Equal(config, expected); diff != nil {
 		t.Fatal(diff)
 	}
@@ -394,9 +421,14 @@ func TestLoadConfigFile_AgentCache_AutoAuth_True(t *testing.T) {
 			UseAutoAuthTokenRaw: "true",
 			ForceAutoAuthToken:  false,
 		},
+		Vault: &Vault{
+			Retry: &Retry{
+				NumRetries: 12,
+			},
+		},
 	}
 
-	config.Listeners[0].RawConfig = nil
+	config.Prune()
 	if diff := deep.Equal(config, expected); diff != nil {
 		t.Fatal(diff)
 	}
@@ -444,9 +476,14 @@ func TestLoadConfigFile_AgentCache_AutoAuth_False(t *testing.T) {
 			UseAutoAuthTokenRaw: "false",
 			ForceAutoAuthToken:  false,
 		},
+		Vault: &Vault{
+			Retry: &Retry{
+				NumRetries: 12,
+			},
+		},
 	}
 
-	config.Listeners[0].RawConfig = nil
+	config.Prune()
 	if diff := deep.Equal(config, expected); diff != nil {
 		t.Fatal(diff)
 	}
@@ -478,14 +515,14 @@ func TestLoadConfigFile_AgentCache_Persist(t *testing.T) {
 				},
 			},
 		},
+		Vault: &Vault{
+			Retry: &Retry{
+				NumRetries: 12,
+			},
+		},
 	}
 
-	config.Listeners[0].RawConfig = nil
-	if diff := deep.Equal(config, expected); diff != nil {
-		t.Fatal(diff)
-	}
-
-	config.Listeners[0].RawConfig = nil
+	config.Prune()
 	if diff := deep.Equal(config, expected); diff != nil {
 		t.Fatal(diff)
 	}
@@ -498,6 +535,60 @@ func TestLoadConfigFile_AgentCache_PersistMissingType(t *testing.T) {
 	}
 }
 
+func TestLoadConfigFile_TemplateConfig(t *testing.T) {
+
+	testCases := map[string]struct {
+		fixturePath            string
+		expectedTemplateConfig TemplateConfig
+	}{
+		"set-true": {
+			"./test-fixtures/config-template_config.hcl",
+			TemplateConfig{
+				ExitOnRetryFailure:    true,
+				StaticSecretRenderInt: 1 * time.Minute,
+			},
+		},
+		"empty": {
+			"./test-fixtures/config-template_config-empty.hcl",
+			TemplateConfig{
+				ExitOnRetryFailure: false,
+			},
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			config, err := LoadConfig(tc.fixturePath)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			expected := &Config{
+				SharedConfig: &configutil.SharedConfig{},
+				Vault: &Vault{
+					Address: "http://127.0.0.1:1111",
+					Retry: &Retry{
+						NumRetries: 5,
+					},
+				},
+				TemplateConfig: &tc.expectedTemplateConfig,
+				Templates: []*ctconfig.TemplateConfig{
+					{
+						Source:      pointerutil.StringPtr("/path/on/disk/to/template.ctmpl"),
+						Destination: pointerutil.StringPtr("/path/on/disk/where/template/will/render.txt"),
+					},
+				},
+			}
+
+			config.Prune()
+			if diff := deep.Equal(config, expected); diff != nil {
+				t.Fatal(diff)
+			}
+		})
+	}
+
+}
+
 // TestLoadConfigFile_Template tests template definitions in Vault Agent
 func TestLoadConfigFile_Template(t *testing.T) {
 	testCases := map[string]struct {
@@ -507,7 +598,7 @@ func TestLoadConfigFile_Template(t *testing.T) {
 		"min": {
 			fixturePath: "./test-fixtures/config-template-min.hcl",
 			expectedTemplates: []*ctconfig.TemplateConfig{
-				&ctconfig.TemplateConfig{
+				{
 					Source:      pointerutil.StringPtr("/path/on/disk/to/template.ctmpl"),
 					Destination: pointerutil.StringPtr("/path/on/disk/where/template/will/render.txt"),
 				},
@@ -516,7 +607,7 @@ func TestLoadConfigFile_Template(t *testing.T) {
 		"full": {
 			fixturePath: "./test-fixtures/config-template-full.hcl",
 			expectedTemplates: []*ctconfig.TemplateConfig{
-				&ctconfig.TemplateConfig{
+				{
 					Backup:         pointerutil.BoolPtr(true),
 					Command:        pointerutil.StringPtr("restart service foo"),
 					CommandTimeout: pointerutil.TimeDurationPtr("60s"),
@@ -525,7 +616,7 @@ func TestLoadConfigFile_Template(t *testing.T) {
 					Destination:    pointerutil.StringPtr("/path/on/disk/where/template/will/render.txt"),
 					ErrMissingKey:  pointerutil.BoolPtr(true),
 					LeftDelim:      pointerutil.StringPtr("<<"),
-					Perms:          pointerutil.FileModePtr(0655),
+					Perms:          pointerutil.FileModePtr(0o655),
 					RightDelim:     pointerutil.StringPtr(">>"),
 					SandboxPath:    pointerutil.StringPtr("/path/on/disk/where"),
 
@@ -539,19 +630,19 @@ func TestLoadConfigFile_Template(t *testing.T) {
 		"many": {
 			fixturePath: "./test-fixtures/config-template-many.hcl",
 			expectedTemplates: []*ctconfig.TemplateConfig{
-				&ctconfig.TemplateConfig{
+				{
 					Source:         pointerutil.StringPtr("/path/on/disk/to/template.ctmpl"),
 					Destination:    pointerutil.StringPtr("/path/on/disk/where/template/will/render.txt"),
 					ErrMissingKey:  pointerutil.BoolPtr(false),
 					CreateDestDirs: pointerutil.BoolPtr(true),
 					Command:        pointerutil.StringPtr("restart service foo"),
-					Perms:          pointerutil.FileModePtr(0600),
+					Perms:          pointerutil.FileModePtr(0o600),
 				},
-				&ctconfig.TemplateConfig{
+				{
 					Source:      pointerutil.StringPtr("/path/on/disk/to/template2.ctmpl"),
 					Destination: pointerutil.StringPtr("/path/on/disk/where/template/will/render2.txt"),
 					Backup:      pointerutil.BoolPtr(true),
-					Perms:       pointerutil.FileModePtr(0755),
+					Perms:       pointerutil.FileModePtr(0o755),
 					Wait: &ctconfig.WaitConfig{
 						Min: pointerutil.TimeDurationPtr("2s"),
 						Max: pointerutil.TimeDurationPtr("10s"),
@@ -593,9 +684,15 @@ func TestLoadConfigFile_Template(t *testing.T) {
 						},
 					},
 				},
+				Vault: &Vault{
+					Retry: &Retry{
+						NumRetries: 12,
+					},
+				},
 				Templates: tc.expectedTemplates,
 			}
 
+			config.Prune()
 			if diff := deep.Equal(config, expected); diff != nil {
 				t.Fatal(diff)
 			}
@@ -612,7 +709,7 @@ func TestLoadConfigFile_Template_NoSinks(t *testing.T) {
 		"min": {
 			fixturePath: "./test-fixtures/config-template-min-nosink.hcl",
 			expectedTemplates: []*ctconfig.TemplateConfig{
-				&ctconfig.TemplateConfig{
+				{
 					Source:      pointerutil.StringPtr("/path/on/disk/to/template.ctmpl"),
 					Destination: pointerutil.StringPtr("/path/on/disk/where/template/will/render.txt"),
 				},
@@ -621,7 +718,7 @@ func TestLoadConfigFile_Template_NoSinks(t *testing.T) {
 		"full": {
 			fixturePath: "./test-fixtures/config-template-full-nosink.hcl",
 			expectedTemplates: []*ctconfig.TemplateConfig{
-				&ctconfig.TemplateConfig{
+				{
 					Backup:         pointerutil.BoolPtr(true),
 					Command:        pointerutil.StringPtr("restart service foo"),
 					CommandTimeout: pointerutil.TimeDurationPtr("60s"),
@@ -630,7 +727,7 @@ func TestLoadConfigFile_Template_NoSinks(t *testing.T) {
 					Destination:    pointerutil.StringPtr("/path/on/disk/where/template/will/render.txt"),
 					ErrMissingKey:  pointerutil.BoolPtr(true),
 					LeftDelim:      pointerutil.StringPtr("<<"),
-					Perms:          pointerutil.FileModePtr(0655),
+					Perms:          pointerutil.FileModePtr(0o655),
 					RightDelim:     pointerutil.StringPtr(">>"),
 					SandboxPath:    pointerutil.StringPtr("/path/on/disk/where"),
 
@@ -644,19 +741,19 @@ func TestLoadConfigFile_Template_NoSinks(t *testing.T) {
 		"many": {
 			fixturePath: "./test-fixtures/config-template-many-nosink.hcl",
 			expectedTemplates: []*ctconfig.TemplateConfig{
-				&ctconfig.TemplateConfig{
+				{
 					Source:         pointerutil.StringPtr("/path/on/disk/to/template.ctmpl"),
 					Destination:    pointerutil.StringPtr("/path/on/disk/where/template/will/render.txt"),
 					ErrMissingKey:  pointerutil.BoolPtr(false),
 					CreateDestDirs: pointerutil.BoolPtr(true),
 					Command:        pointerutil.StringPtr("restart service foo"),
-					Perms:          pointerutil.FileModePtr(0600),
+					Perms:          pointerutil.FileModePtr(0o600),
 				},
-				&ctconfig.TemplateConfig{
+				{
 					Source:      pointerutil.StringPtr("/path/on/disk/to/template2.ctmpl"),
 					Destination: pointerutil.StringPtr("/path/on/disk/where/template/will/render2.txt"),
 					Backup:      pointerutil.BoolPtr(true),
-					Perms:       pointerutil.FileModePtr(0755),
+					Perms:       pointerutil.FileModePtr(0o755),
 					Wait: &ctconfig.WaitConfig{
 						Min: pointerutil.TimeDurationPtr("2s"),
 						Max: pointerutil.TimeDurationPtr("10s"),
@@ -689,8 +786,14 @@ func TestLoadConfigFile_Template_NoSinks(t *testing.T) {
 					Sinks: nil,
 				},
 				Templates: tc.expectedTemplates,
+				Vault: &Vault{
+					Retry: &Retry{
+						NumRetries: 12,
+					},
+				},
 			}
 
+			config.Prune()
 			if diff := deep.Equal(config, expected); diff != nil {
 				t.Fatal(diff)
 			}
@@ -731,17 +834,13 @@ func TestLoadConfigFile_Vault_Retry(t *testing.T) {
 		},
 		Vault: &Vault{
 			Address: "http://127.0.0.1:1111",
-		},
-		TemplateRetry: &TemplateRetry{
-			Enabled:       true,
-			Attempts:      5,
-			BackoffRaw:    nil,
-			Backoff:       100 * time.Millisecond,
-			MaxBackoffRaw: nil,
-			MaxBackoff:    400 * time.Millisecond,
+			Retry: &Retry{
+				NumRetries: 5,
+			},
 		},
 	}
 
+	config.Prune()
 	if diff := deep.Equal(config, expected); diff != nil {
 		t.Fatal(diff)
 	}
@@ -780,17 +879,13 @@ func TestLoadConfigFile_Vault_Retry_Empty(t *testing.T) {
 		},
 		Vault: &Vault{
 			Address: "http://127.0.0.1:1111",
-		},
-		TemplateRetry: &TemplateRetry{
-			Enabled:       false,
-			Attempts:      ctconfig.DefaultRetryAttempts,
-			BackoffRaw:    nil,
-			Backoff:       ctconfig.DefaultRetryBackoff,
-			MaxBackoffRaw: nil,
-			MaxBackoff:    ctconfig.DefaultRetryMaxBackoff,
+			Retry: &Retry{
+				ctconfig.DefaultRetryAttempts,
+			},
 		},
 	}
 
+	config.Prune()
 	if diff := deep.Equal(config, expected); diff != nil {
 		t.Fatal(diff)
 	}
@@ -817,9 +912,14 @@ func TestLoadConfigFile_EnforceConsistency(t *testing.T) {
 			EnforceConsistency: "always",
 			WhenInconsistent:   "retry",
 		},
+		Vault: &Vault{
+			Retry: &Retry{
+				NumRetries: 12,
+			},
+		},
 	}
 
-	config.Listeners[0].RawConfig = nil
+	config.Prune()
 	if diff := deep.Equal(config, expected); diff != nil {
 		t.Fatal(diff)
 	}

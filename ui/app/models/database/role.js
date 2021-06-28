@@ -22,6 +22,7 @@ export default Model.extend({
   }),
   type: attr('string', {
     label: 'Type of role',
+    noDefault: true,
     possibleValues: ['static', 'dynamic'],
   }),
   ttl: attr({
@@ -45,11 +46,10 @@ export default Model.extend({
     editType: 'ttl',
     defaultValue: '24h',
     subText:
-      'Specifies the amount of time Vault should wait before rotating the password. The minimum is 5 seconds.',
+      'Specifies the amount of time Vault should wait before rotating the password. The minimum is 5 seconds. Default is 24 hours.',
   }),
   creation_statements: attr('array', {
     editType: 'stringArray',
-    defaultShown: 'Default',
   }),
   revocation_statements: attr('array', {
     editType: 'stringArray',
@@ -59,13 +59,23 @@ export default Model.extend({
     editType: 'stringArray',
     defaultShown: 'Default',
   }),
+  rollback_statements: attr('array', {
+    editType: 'stringArray',
+    defaultShown: 'Default',
+  }),
+  renew_statements: attr('array', {
+    editType: 'stringArray',
+    defaultShown: 'Default',
+  }),
   creation_statement: attr('string', {
     editType: 'json',
+    allowReset: true,
     theme: 'hashi short',
     defaultShown: 'Default',
   }),
   revocation_statement: attr('string', {
     editType: 'json',
+    allowReset: true,
     theme: 'hashi short',
     defaultShown: 'Default',
   }),
@@ -99,6 +109,8 @@ export default Model.extend({
       'revocation_statements',
       'revocation_statement', // only for MongoDB (styling difference)
       'rotation_statements',
+      'rollback_statements',
+      'renew_statements',
     ];
     return expandAttributeMeta(this, allRoleSettingFields);
   }),

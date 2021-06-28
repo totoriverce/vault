@@ -9,7 +9,6 @@ import (
 	"time"
 
 	ctconfig "github.com/hashicorp/consul-template/config"
-	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/hcl"
 	"github.com/hashicorp/hcl/hcl/ast"
@@ -23,12 +22,32 @@ import (
 type Config struct {
 	*configutil.SharedConfig `hcl:"-"`
 
-	AutoAuth      *AutoAuth                  `hcl:"auto_auth"`
-	ExitAfterAuth bool                       `hcl:"exit_after_auth"`
-	Cache         *Cache                     `hcl:"cache"`
-	Vault         *Vault                     `hcl:"vault"`
-	Templates     []*ctconfig.TemplateConfig `hcl:"templates"`
-	TemplateRetry *TemplateRetry             `hcl:"template_retry"`
+	AutoAuth       *AutoAuth                  `hcl:"auto_auth"`
+	ExitAfterAuth  bool                       `hcl:"exit_after_auth"`
+	Cache          *Cache                     `hcl:"cache"`
+	Vault          *Vault                     `hcl:"vault"`
+	TemplateConfig *TemplateConfig            `hcl:"template_config"`
+	Templates      []*ctconfig.TemplateConfig `hcl:"templates"`
+}
+
+func (c *Config) Prune() {
+	for _, l := range c.Listeners {
+		l.RawConfig = nil
+		l.Profiling.UnusedKeys = nil
+		l.Telemetry.UnusedKeys = nil
+	}
+	c.FoundKeys = nil
+	c.UnusedKeys = nil
+	c.SharedConfig.FoundKeys = nil
+	c.SharedConfig.UnusedKeys = nil
+	if c.Telemetry != nil {
+		c.Telemetry.FoundKeys = nil
+		c.Telemetry.UnusedKeys = nil
+	}
+}
+
+type Retry struct {
+	NumRetries int `hcl:"num_retries"`
 }
 
 // Vault contains configuration for connecting to Vault servers
@@ -41,6 +60,7 @@ type Vault struct {
 	ClientCert       string      `hcl:"client_cert"`
 	ClientKey        string      `hcl:"client_key"`
 	TLSServerName    string      `hcl:"tls_server_name"`
+	Retry            *Retry      `hcl:"retry"`
 }
 
 // Cache contains any configuration needed for Cache mode
@@ -97,13 +117,11 @@ type Sink struct {
 	Config     map[string]interface{}
 }
 
-type TemplateRetry struct {
-	Enabled       bool          `hcl:"enabled"`
-	Attempts      int           `hcl:"attempts"`
-	BackoffRaw    interface{}   `hcl:"backoff"`
-	Backoff       time.Duration `hcl:"-"`
-	MaxBackoffRaw interface{}   `hcl:"max_backoff"`
-	MaxBackoff    time.Duration `hcl:"-"`
+// TemplateConfig defines global behaviors around template
+type TemplateConfig struct {
+	ExitOnRetryFailure       bool          `hcl:"exit_on_retry_failure"`
+	StaticSecretRenderIntRaw interface{}   `hcl:"static_secret_render_interval"`
+	StaticSecretRenderInt    time.Duration `hcl:"-"`
 }
 
 func NewConfig() *Config {
@@ -136,6 +154,14 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, err
 	}
 
+	// Attribute
+	ast.Walk(obj, func(n ast.Node) (ast.Node, bool) {
+		if k, ok := n.(*ast.ObjectKey); ok {
+			k.Token.Pos.Filename = path
+		}
+		return n, true
+	})
+
 	// Start building the result
 	result := NewConfig()
 	if err := hcl.DecodeObject(result, obj); err != nil {
@@ -154,15 +180,19 @@ func LoadConfig(path string) (*Config, error) {
 	}
 
 	if err := parseAutoAuth(result, list); err != nil {
-		return nil, errwrap.Wrapf("error parsing 'auto_auth': {{err}}", err)
+		return nil, fmt.Errorf("error parsing 'auto_auth': %w", err)
 	}
 
 	if err := parseCache(result, list); err != nil {
-		return nil, errwrap.Wrapf("error parsing 'cache':{{err}}", err)
+		return nil, fmt.Errorf("error parsing 'cache':%w", err)
+	}
+
+	if err := parseTemplateConfig(result, list); err != nil {
+		return nil, fmt.Errorf("error parsing 'template_config': %w", err)
 	}
 
 	if err := parseTemplates(result, list); err != nil {
-		return nil, errwrap.Wrapf("error parsing 'template': {{err}}", err)
+		return nil, fmt.Errorf("error parsing 'template': %w", err)
 	}
 
 	if result.Cache != nil {
@@ -190,11 +220,22 @@ func LoadConfig(path string) (*Config, error) {
 
 	err = parseVault(result, list)
 	if err != nil {
-		return nil, errwrap.Wrapf("error parsing 'vault':{{err}}", err)
+		return nil, fmt.Errorf("error parsing 'vault':%w", err)
 	}
 
-	if err := parseRetry(result, list); err != nil {
-		return nil, errwrap.Wrapf("error parsing 'retry': {{err}}", err)
+	if result.Vault == nil {
+		result.Vault = &Vault{}
+	}
+
+	// Set defaults
+	if result.Vault.Retry == nil {
+		result.Vault.Retry = &Retry{}
+	}
+	switch result.Vault.Retry.NumRetries {
+	case 0:
+		result.Vault.Retry.NumRetries = ctconfig.DefaultRetryAttempts
+	case -1:
+		result.Vault.Retry.NumRetries = 0
 	}
 
 	return result, nil
@@ -229,11 +270,20 @@ func parseVault(result *Config, list *ast.ObjectList) error {
 
 	result.Vault = &v
 
+	subs, ok := item.Val.(*ast.ObjectType)
+	if !ok {
+		return fmt.Errorf("could not parse %q as an object", name)
+	}
+
+	if err := parseRetry(result, subs.List); err != nil {
+		return fmt.Errorf("error parsing 'retry': %w", err)
+	}
+
 	return nil
 }
 
 func parseRetry(result *Config, list *ast.ObjectList) error {
-	name := "template_retry"
+	name := "retry"
 
 	retryList := list.Filter(name)
 	if len(retryList.Items) == 0 {
@@ -246,36 +296,13 @@ func parseRetry(result *Config, list *ast.ObjectList) error {
 
 	item := retryList.Items[0]
 
-	var r TemplateRetry
+	var r Retry
 	err := hcl.DecodeObject(&r, item.Val)
 	if err != nil {
 		return err
 	}
 
-	// Set defaults
-	if r.Attempts < 1 {
-		r.Attempts = ctconfig.DefaultRetryAttempts
-	}
-	r.Backoff = ctconfig.DefaultRetryBackoff
-	r.MaxBackoff = ctconfig.DefaultRetryMaxBackoff
-
-	if r.BackoffRaw != nil {
-		var err error
-		if r.Backoff, err = parseutil.ParseDurationSecond(r.BackoffRaw); err != nil {
-			return err
-		}
-		r.BackoffRaw = nil
-	}
-
-	if r.MaxBackoffRaw != nil {
-		var err error
-		if r.MaxBackoff, err = parseutil.ParseDurationSecond(r.MaxBackoffRaw); err != nil {
-			return err
-		}
-		r.MaxBackoffRaw = nil
-	}
-
-	result.TemplateRetry = &r
+	result.Vault.Retry = &r
 
 	return nil
 }
@@ -395,14 +422,14 @@ func parseAutoAuth(result *Config, list *ast.ObjectList) error {
 	subList := subs.List
 
 	if err := parseMethod(result, subList); err != nil {
-		return errwrap.Wrapf("error parsing 'method': {{err}}", err)
+		return fmt.Errorf("error parsing 'method': %w", err)
 	}
 	if a.Method == nil {
 		return fmt.Errorf("no 'method' block found")
 	}
 
 	if err := parseSinks(result, subList); err != nil {
-		return errwrap.Wrapf("error parsing 'sink' stanzas: {{err}}", err)
+		return fmt.Errorf("error parsing 'sink' stanzas: %w", err)
 	}
 
 	if result.AutoAuth.Method.WrapTTL > 0 {
@@ -535,6 +562,39 @@ func parseSinks(result *Config, list *ast.ObjectList) error {
 	}
 
 	result.AutoAuth.Sinks = ts
+	return nil
+}
+
+func parseTemplateConfig(result *Config, list *ast.ObjectList) error {
+	name := "template_config"
+
+	templateConfigList := list.Filter(name)
+	if len(templateConfigList.Items) == 0 {
+		return nil
+	}
+
+	if len(templateConfigList.Items) > 1 {
+		return fmt.Errorf("at most one %q block is allowed", name)
+	}
+
+	// Get our item
+	item := templateConfigList.Items[0]
+
+	var cfg TemplateConfig
+	if err := hcl.DecodeObject(&cfg, item.Val); err != nil {
+		return err
+	}
+
+	result.TemplateConfig = &cfg
+
+	if result.TemplateConfig.StaticSecretRenderIntRaw != nil {
+		var err error
+		if result.TemplateConfig.StaticSecretRenderInt, err = parseutil.ParseDurationSecond(result.TemplateConfig.StaticSecretRenderIntRaw); err != nil {
+			return err
+		}
+		result.TemplateConfig.StaticSecretRenderIntRaw = nil
+	}
+
 	return nil
 }
 

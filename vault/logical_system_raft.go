@@ -374,8 +374,9 @@ func (b *SystemBackend) handleRaftBootstrapAnswerWrite() framework.OperationFunc
 
 		return &logical.Response{
 			Data: map[string]interface{}{
-				"peers":       peers,
-				"tls_keyring": &keyring,
+				"peers":              peers,
+				"tls_keyring":        &keyring,
+				"autoloaded_license": LicenseAutoloaded(b.Core),
 			},
 		}, nil
 	}
@@ -402,8 +403,8 @@ func (b *SystemBackend) handleStorageRaftSnapshotRead() framework.OperationFunc 
 
 func (b *SystemBackend) handleStorageRaftAutopilotState() framework.OperationFunc {
 	return func(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-		raftBackend, ok := b.Core.underlyingPhysical.(*raft.RaftBackend)
-		if !ok {
+		raftBackend := b.Core.getRaftBackend()
+		if raftBackend == nil {
 			return logical.ErrorResponse("raft storage is not in use"), logical.ErrInvalidRequest
 		}
 
@@ -431,12 +432,12 @@ func (b *SystemBackend) handleStorageRaftAutopilotState() framework.OperationFun
 
 func (b *SystemBackend) handleStorageRaftAutopilotConfigRead() framework.OperationFunc {
 	return func(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-		raftStorage, ok := b.Core.underlyingPhysical.(*raft.RaftBackend)
-		if !ok {
+		raftBackend := b.Core.getRaftBackend()
+		if raftBackend == nil {
 			return logical.ErrorResponse("raft storage is not in use"), logical.ErrInvalidRequest
 		}
 
-		config := raftStorage.AutopilotConfig()
+		config := raftBackend.AutopilotConfig()
 		if config == nil {
 			return nil, nil
 		}
@@ -456,8 +457,8 @@ func (b *SystemBackend) handleStorageRaftAutopilotConfigRead() framework.Operati
 
 func (b *SystemBackend) handleStorageRaftAutopilotConfigUpdate() framework.OperationFunc {
 	return func(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-		raftStorage, ok := b.Core.underlyingPhysical.(*raft.RaftBackend)
-		if !ok {
+		raftBackend := b.Core.getRaftBackend()
+		if raftBackend == nil {
 			return logical.ErrorResponse("raft storage is not in use"), logical.ErrInvalidRequest
 		}
 
@@ -506,7 +507,7 @@ func (b *SystemBackend) handleStorageRaftAutopilotConfigUpdate() framework.Opera
 			persist = true
 		}
 
-		effectiveConf := raftStorage.AutopilotConfig()
+		effectiveConf := raftBackend.AutopilotConfig()
 		effectiveConf.Merge(config)
 
 		if effectiveConf.CleanupDeadServers && effectiveConf.MinQuorum < 3 {
@@ -525,7 +526,7 @@ func (b *SystemBackend) handleStorageRaftAutopilotConfigUpdate() framework.Opera
 		}
 
 		// Set the effectiveConfig
-		raftStorage.SetAutopilotConfig(effectiveConf)
+		raftBackend.SetAutopilotConfig(effectiveConf)
 
 		return nil, nil
 	}
@@ -638,7 +639,6 @@ func (b *SystemBackend) handleStorageRaftSnapshotWrite(force bool) framework.Ope
 			}
 
 			return nil
-
 		}()
 
 		return nil, nil

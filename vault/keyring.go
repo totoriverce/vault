@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/vault/sdk/helper/jsonutil"
 )
 
@@ -73,7 +72,7 @@ func (k *Key) Serialize() ([]byte, error) {
 func DeserializeKey(buf []byte) (*Key, error) {
 	k := new(Key)
 	if err := jsonutil.DecodeJSON(buf, k); err != nil {
-		return nil, errwrap.Wrapf("deserialization failed: {{err}}", err)
+		return nil, fmt.Errorf("deserialization failed: %w", err)
 	}
 	return k, nil
 }
@@ -206,7 +205,7 @@ func DeserializeKeyring(buf []byte) (*Keyring, error) {
 	// Deserialize the keyring
 	var enc EncodedKeyring
 	if err := jsonutil.DecodeJSON(buf, &enc); err != nil {
-		return nil, errwrap.Wrapf("deserialization failed: {{err}}", err)
+		return nil, fmt.Errorf("deserialization failed: %w", err)
 	}
 
 	// Create a new keyring
@@ -253,8 +252,11 @@ func (c KeyRotationConfig) Clone() KeyRotationConfig {
 }
 
 func (c *KeyRotationConfig) Sanitize() {
-	if c.MaxOperations == 0 || c.MaxOperations > absoluteOperationMaximum || c.MaxOperations < absoluteOperationMinimum {
+	if c.MaxOperations == 0 || c.MaxOperations > absoluteOperationMaximum {
 		c.MaxOperations = absoluteOperationMaximum
+	}
+	if c.MaxOperations < absoluteOperationMinimum {
+		c.MaxOperations = absoluteOperationMinimum
 	}
 	if c.Interval > 0 && c.Interval < minimumRotationInterval {
 		c.Interval = minimumRotationInterval
