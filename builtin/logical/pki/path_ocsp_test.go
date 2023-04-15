@@ -36,7 +36,7 @@ func TestOcsp_Disabled(t *testing.T) {
 		reqType string
 	}
 	var tests []testArgs
-	for _, reqType := range []string{"get", "post"} {
+	for _, reqType := range []string{"post"} {
 		tests = append(tests, testArgs{
 			reqType: reqType,
 		})
@@ -61,6 +61,26 @@ func TestOcsp_Disabled(t *testing.T) {
 	}
 }
 
+// TestOcsp_GetReturnsMethodNotAllowed: Verify if we receive a GET request for the OCSP handler that
+// we return a 405 error code (MethodNotAllowed) as we do not support them at this time due to
+// Go's HTTP server mux attempting to "clean" GET paths of consecutive '/' characters.
+func TestOcsp_GetReturnsMethodNotAllowed(t *testing.T) {
+	t.Parallel()
+	b, s, testEnv := setupOcspEnv(t, "rsa")
+	resp, err := CBWrite(b, s, "config/crl", map[string]interface{}{
+		"ocsp_disable": "false",
+	})
+	requireSuccessNonNilResponse(t, resp, err)
+	resp, err = SendOcspRequest(t, b, s, "get", testEnv.leafCertIssuer1, testEnv.issuer1, crypto.SHA1)
+	require.NoError(t, err)
+	requireFieldsSetInResp(t, resp, "http_content_type", "http_status_code", "http_raw_body")
+	require.Equal(t, 405, resp.Data["http_status_code"])
+	require.Equal(t, ocspResponseContentType, resp.Data["http_content_type"])
+	respDer := resp.Data["http_raw_body"].([]byte)
+
+	require.Equal(t, ocsp.UnauthorizedErrorResponse, respDer)
+}
+
 // If we can't find the issuer within the request and have no default issuer to sign an Unknown response
 // with return an UnauthorizedErrorResponse/according to/the RFC, similar to if we are disabled (lack of authority)
 // This behavior differs from CRLs when an issuer is removed from a mount.
@@ -71,7 +91,7 @@ func TestOcsp_UnknownIssuerWithNoDefault(t *testing.T) {
 	// Create another completely empty mount so the created issuer/certificate above is unknown
 	b, s := CreateBackendWithStorage(t)
 
-	resp, err := SendOcspRequest(t, b, s, "get", testEnv.leafCertIssuer1, testEnv.issuer1, crypto.SHA1)
+	resp, err := SendOcspRequest(t, b, s, "post", testEnv.leafCertIssuer1, testEnv.issuer1, crypto.SHA1)
 	require.NoError(t, err)
 	requireFieldsSetInResp(t, resp, "http_content_type", "http_status_code", "http_raw_body")
 	require.Equal(t, 401, resp.Data["http_status_code"])
@@ -93,7 +113,7 @@ func TestOcsp_WrongIssuerInRequest(t *testing.T) {
 	})
 	requireSuccessNonNilResponse(t, resp, err, "revoke")
 
-	resp, err = SendOcspRequest(t, b, s, "get", testEnv.leafCertIssuer1, testEnv.issuer2, crypto.SHA1)
+	resp, err = SendOcspRequest(t, b, s, "post", testEnv.leafCertIssuer1, testEnv.issuer2, crypto.SHA1)
 	require.NoError(t, err)
 	requireFieldsSetInResp(t, resp, "http_content_type", "http_status_code", "http_raw_body")
 	require.Equal(t, 200, resp.Data["http_status_code"])
@@ -113,7 +133,7 @@ func TestOcsp_MalformedRequests(t *testing.T) {
 		reqType string
 	}
 	var tests []testArgs
-	for _, reqType := range []string{"get", "post"} {
+	for _, reqType := range []string{"post"} {
 		tests = append(tests, testArgs{
 			reqType: reqType,
 		})
@@ -126,8 +146,6 @@ func TestOcsp_MalformedRequests(t *testing.T) {
 			var resp *logical.Response
 			var err error
 			switch localTT.reqType {
-			case "get":
-				resp, err = sendOcspGetRequest(b, s, badReq)
 			case "post":
 				resp, err = sendOcspPostRequest(b, s, badReq)
 			default:
@@ -175,7 +193,7 @@ func TestOcsp_InvalidIssuerIdInRevocationEntry(t *testing.T) {
 	require.NoError(t, err, "failed writing out new revocation entry: %v", revEntry)
 
 	// Send the request
-	resp, err = SendOcspRequest(t, b, s, "get", testEnv.leafCertIssuer1, testEnv.issuer1, crypto.SHA1)
+	resp, err = SendOcspRequest(t, b, s, "post", testEnv.leafCertIssuer1, testEnv.issuer1, crypto.SHA1)
 	require.NoError(t, err)
 	requireFieldsSetInResp(t, resp, "http_content_type", "http_status_code", "http_raw_body")
 	require.Equal(t, 200, resp.Data["http_status_code"])
@@ -229,7 +247,7 @@ func TestOcsp_UnknownIssuerIdWithDefaultHavingOcspUsageRemoved(t *testing.T) {
 	requireSuccessNonNilResponse(t, resp, err, "failed resetting usage flags on issuer2")
 
 	// Send the request
-	resp, err = SendOcspRequest(t, b, s, "get", testEnv.leafCertIssuer1, testEnv.issuer1, crypto.SHA1)
+	resp, err = SendOcspRequest(t, b, s, "post", testEnv.leafCertIssuer1, testEnv.issuer1, crypto.SHA1)
 	require.NoError(t, err)
 	requireFieldsSetInResp(t, resp, "http_content_type", "http_status_code", "http_raw_body")
 	require.Equal(t, 401, resp.Data["http_status_code"])
@@ -266,8 +284,8 @@ func TestOcsp_RevokedCertHasIssuerWithoutOcspUsage(t *testing.T) {
 	require.False(t, usages.HasUsage(OCSPSigningUsage))
 
 	// Request an OCSP request from it, we should get an Unauthorized response back
-	resp, err = SendOcspRequest(t, b, s, "get", testEnv.leafCertIssuer1, testEnv.issuer1, crypto.SHA1)
-	requireSuccessNonNilResponse(t, resp, err, "ocsp get request")
+	resp, err = SendOcspRequest(t, b, s, "post", testEnv.leafCertIssuer1, testEnv.issuer1, crypto.SHA1)
+	requireSuccessNonNilResponse(t, resp, err, "ocsp post request")
 	requireFieldsSetInResp(t, resp, "http_content_type", "http_status_code", "http_raw_body")
 	require.Equal(t, 401, resp.Data["http_status_code"])
 	require.Equal(t, ocspResponseContentType, resp.Data["http_content_type"])
@@ -305,8 +323,8 @@ func TestOcsp_RevokedCertHasIssuerWithoutAKey(t *testing.T) {
 	requireSuccessNonNilResponse(t, resp, err, "failed deleting key")
 
 	// Request an OCSP request from it, we should get an Unauthorized response back
-	resp, err = SendOcspRequest(t, b, s, "get", testEnv.leafCertIssuer1, testEnv.issuer1, crypto.SHA1)
-	requireSuccessNonNilResponse(t, resp, err, "ocsp get request")
+	resp, err = SendOcspRequest(t, b, s, "post", testEnv.leafCertIssuer1, testEnv.issuer1, crypto.SHA1)
+	requireSuccessNonNilResponse(t, resp, err, "ocsp post request")
 	requireFieldsSetInResp(t, resp, "http_content_type", "http_status_code", "http_raw_body")
 	require.Equal(t, 401, resp.Data["http_status_code"])
 	require.Equal(t, ocspResponseContentType, resp.Data["http_content_type"])
@@ -351,15 +369,15 @@ func TestOcsp_MultipleMatchingIssuersOneWithoutSigningUsage(t *testing.T) {
 	require.False(t, usages.HasUsage(OCSPSigningUsage))
 
 	// Request an OCSP request from it, we should get a Good response back, from the rotated cert
-	resp, err = SendOcspRequest(t, b, s, "get", testEnv.leafCertIssuer1, testEnv.issuer1, crypto.SHA1)
-	requireSuccessNonNilResponse(t, resp, err, "ocsp get request")
+	resp, err = SendOcspRequest(t, b, s, "post", testEnv.leafCertIssuer1, testEnv.issuer1, crypto.SHA1)
+	requireSuccessNonNilResponse(t, resp, err, "ocsp post request")
 	requireFieldsSetInResp(t, resp, "http_content_type", "http_status_code", "http_raw_body")
 	require.Equal(t, 200, resp.Data["http_status_code"])
 	require.Equal(t, ocspResponseContentType, resp.Data["http_content_type"])
 	respDer := resp.Data["http_raw_body"].([]byte)
 
 	ocspResp, err := ocsp.ParseResponse(respDer, testEnv.issuer1)
-	require.NoError(t, err, "parsing ocsp get response")
+	require.NoError(t, err, "parsing ocsp post response")
 
 	require.Equal(t, ocsp.Good, ocspResp.Status)
 	require.Equal(t, crypto.SHA1, ocspResp.IssuerHash)
@@ -439,28 +457,7 @@ func TestOcsp_HigherLevel(t *testing.T) {
 	require.NoError(t, err, "failed reading response body")
 
 	ocspResp, err := ocsp.ParseResponse(respDer, issuerCert)
-	require.NoError(t, err, "parsing ocsp get response")
-
-	require.Equal(t, ocsp.Revoked, ocspResp.Status)
-	require.Equal(t, issuerCert, ocspResp.Certificate)
-	require.Equal(t, certToRevoke.SerialNumber, ocspResp.SerialNumber)
-
-	// Test OCSP Get request for ocsp
-	urlEncoded := base64.StdEncoding.EncodeToString(ocspReq)
-	ocspGetReq := client.NewRequest(http.MethodGet, "/v1/pki/ocsp/"+urlEncoded)
-	ocspGetReq.Headers.Set("Content-Type", "application/ocsp-request")
-	rawResp, err = client.RawRequest(ocspGetReq)
-	require.NoError(t, err, "failed sending ocsp get request")
-
-	require.Equal(t, 200, rawResp.StatusCode)
-	require.Equal(t, ocspResponseContentType, rawResp.Header.Get("Content-Type"))
-	bodyReader = rawResp.Body
-	respDer, err = io.ReadAll(bodyReader)
-	bodyReader.Close()
-	require.NoError(t, err, "failed reading response body")
-
-	ocspResp, err = ocsp.ParseResponse(respDer, issuerCert)
-	require.NoError(t, err, "parsing ocsp get response")
+	require.NoError(t, err, "parsing ocsp post response")
 
 	require.Equal(t, ocsp.Revoked, ocspResp.Status)
 	require.Equal(t, issuerCert, ocspResp.Certificate)
@@ -480,7 +477,7 @@ func TestOcsp_ValidRequests(t *testing.T) {
 		reqHash crypto.Hash
 	}
 	var tests []testArgs
-	for _, reqType := range []string{"get", "post"} {
+	for _, reqType := range []string{"post"} {
 		for _, keyConf := range []caKeyConf{
 			{"rsa", 0, 0},
 			{"rsa", 0, 384},
@@ -516,14 +513,14 @@ func runOcspRequestTest(t *testing.T, requestType string, caKeyType string, caKe
 
 	// Non-revoked cert
 	resp, err := SendOcspRequest(t, b, s, requestType, testEnv.leafCertIssuer1, testEnv.issuer1, requestHash)
-	requireSuccessNonNilResponse(t, resp, err, "ocsp get request")
+	requireSuccessNonNilResponse(t, resp, err, "ocsp request")
 	requireFieldsSetInResp(t, resp, "http_content_type", "http_status_code", "http_raw_body")
 	require.Equal(t, 200, resp.Data["http_status_code"])
 	require.Equal(t, ocspResponseContentType, resp.Data["http_content_type"])
 	respDer := resp.Data["http_raw_body"].([]byte)
 
 	ocspResp, err := ocsp.ParseResponse(respDer, testEnv.issuer1)
-	require.NoError(t, err, "parsing ocsp get response")
+	require.NoError(t, err, "parsing ocsp response")
 
 	require.Equal(t, ocsp.Good, ocspResp.Status)
 	require.Equal(t, requestHash, ocspResp.IssuerHash)
@@ -541,14 +538,14 @@ func runOcspRequestTest(t *testing.T, requestType string, caKeyType string, caKe
 	requireSuccessNonNilResponse(t, resp, err, "revoke")
 
 	resp, err = SendOcspRequest(t, b, s, requestType, testEnv.leafCertIssuer1, testEnv.issuer1, requestHash)
-	requireSuccessNonNilResponse(t, resp, err, "ocsp get request with revoked")
+	requireSuccessNonNilResponse(t, resp, err, "ocsp request with revoked")
 	requireFieldsSetInResp(t, resp, "http_content_type", "http_status_code", "http_raw_body")
 	require.Equal(t, 200, resp.Data["http_status_code"])
 	require.Equal(t, ocspResponseContentType, resp.Data["http_content_type"])
 	respDer = resp.Data["http_raw_body"].([]byte)
 
 	ocspResp, err = ocsp.ParseResponse(respDer, testEnv.issuer1)
-	require.NoError(t, err, "parsing ocsp get response with revoked")
+	require.NoError(t, err, "parsing ocsp response with revoked")
 
 	require.Equal(t, ocsp.Revoked, ocspResp.Status)
 	require.Equal(t, requestHash, ocspResp.IssuerHash)
@@ -561,14 +558,14 @@ func runOcspRequestTest(t *testing.T, requestType string, caKeyType string, caKe
 
 	// Request status for our second issuer
 	resp, err = SendOcspRequest(t, b, s, requestType, testEnv.leafCertIssuer2, testEnv.issuer2, requestHash)
-	requireSuccessNonNilResponse(t, resp, err, "ocsp get request")
+	requireSuccessNonNilResponse(t, resp, err, "ocsp request")
 	requireFieldsSetInResp(t, resp, "http_content_type", "http_status_code", "http_raw_body")
 	require.Equal(t, 200, resp.Data["http_status_code"])
 	require.Equal(t, ocspResponseContentType, resp.Data["http_content_type"])
 	respDer = resp.Data["http_raw_body"].([]byte)
 
 	ocspResp, err = ocsp.ParseResponse(respDer, testEnv.issuer2)
-	require.NoError(t, err, "parsing ocsp get response")
+	require.NoError(t, err, "parsing ocsp response")
 
 	require.Equal(t, ocsp.Good, ocspResp.Status)
 	require.Equal(t, requestHash, ocspResp.IssuerHash)
