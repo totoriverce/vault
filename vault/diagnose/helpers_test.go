@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package diagnose
 
 import (
@@ -63,7 +66,7 @@ func TestDiagnoseOtelResults(t *testing.T) {
 		},
 	}
 	sess := New(os.Stdout)
-	sess.SetSkipList([]string{"dispose-grounds"})
+	sess.SkipFilters = []string{"dispose-grounds"}
 	ctx := Context(context.Background(), sess)
 
 	func() {
@@ -85,7 +88,6 @@ func TestDiagnoseOtelResults(t *testing.T) {
 const coffeeLeft = 3
 
 func makeCoffee(ctx context.Context) error {
-
 	if coffeeLeft < 5 {
 		Warn(ctx, "coffee getting low")
 		Advise(ctx, getMoreCoffee)
@@ -107,7 +109,7 @@ func makeCoffee(ctx context.Context) error {
 
 	SpotCheck(ctx, "pick-scone", pickScone)
 
-	Test(ctx, "dispose-grounds", Skippable("dispose-grounds", disposeGrounds))
+	Test(ctx, "dispose-grounds", disposeGrounds)
 	return nil
 }
 
@@ -139,7 +141,7 @@ func brewCoffee(ctx context.Context) error {
 	ctx, span := StartSpan(ctx, "brew-coffee")
 	defer span.End()
 
-	//Brewing happens here, successfully
+	// Brewing happens here, successfully
 	return nil
 }
 
@@ -148,6 +150,21 @@ func pickScone() error {
 }
 
 func disposeGrounds(_ context.Context) error {
-	//Done!
+	// Done!
 	return nil
+}
+
+func TestCapitalizeFirstLetter(t *testing.T) {
+	s := "this is a test."
+	if CapitalizeFirstLetter(s) != "This is a test." {
+		t.Fatalf("first word of string was not capitalized: got %s", CapitalizeFirstLetter(s))
+	}
+	s = "this"
+	if CapitalizeFirstLetter(s) != "This" {
+		t.Fatalf("first word of string was not capitalized: got %s", CapitalizeFirstLetter(s))
+	}
+	s = "."
+	if CapitalizeFirstLetter(s) != "." {
+		t.Fatalf("String without letters was not unchanged: got %s", CapitalizeFirstLetter(s))
+	}
 }

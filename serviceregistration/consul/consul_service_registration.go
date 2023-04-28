@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package consul
 
 import (
@@ -18,10 +21,10 @@ import (
 
 	"github.com/hashicorp/consul/api"
 	log "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/go-secure-stdlib/parseutil"
+	"github.com/hashicorp/go-secure-stdlib/strutil"
+	"github.com/hashicorp/go-secure-stdlib/tlsutil"
 	"github.com/hashicorp/vault/sdk/helper/consts"
-	"github.com/hashicorp/vault/sdk/helper/parseutil"
-	"github.com/hashicorp/vault/sdk/helper/strutil"
-	"github.com/hashicorp/vault/sdk/helper/tlsutil"
 	sr "github.com/hashicorp/vault/serviceregistration"
 	"github.com/hashicorp/vault/vault/diagnose"
 	atomicB "go.uber.org/atomic"
@@ -50,6 +53,10 @@ const (
 	// reconcileTimeout is how often Vault should query Consul to detect
 	// and fix any state drift.
 	reconcileTimeout = 60 * time.Second
+
+	// metaExternalSource is a metadata value for external-source that can be
+	// used by the Consul UI.
+	metaExternalSource = "vault"
 )
 
 var hostnameRegex = regexp.MustCompile(`^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$`)
@@ -138,7 +145,7 @@ func NewServiceRegistration(conf map[string]string, logger log.Logger, state sr.
 		serviceAddr = &serviceAddrStr
 	}
 	if logger.IsDebug() {
-		logger.Debug("config service_address set", "service_address", serviceAddr)
+		logger.Debug("config service_address set", "service_address", serviceAddrStr)
 	}
 
 	checkTimeout := defaultCheckTimeout
@@ -259,6 +266,10 @@ func SetupSecureTLS(ctx context.Context, consulConf *api.Config, conf map[string
 			return err
 		}
 		logger.Debug("configured TLS")
+	} else {
+		if isDiagnose {
+			diagnose.Skipped(ctx, "HTTPS is not used, Skipping TLS verification.")
+		}
 	}
 
 	return nil
@@ -520,6 +531,9 @@ func (c *serviceRegistration) reconcileConsul(registeredServiceID string) (servi
 		Port:              int(c.redirectPort),
 		Address:           serviceAddress,
 		EnableTagOverride: false,
+		Meta: map[string]string{
+			"external-source": metaExternalSource,
+		},
 	}
 
 	checkStatus := api.HealthCritical

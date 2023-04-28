@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package token
 
 import (
@@ -585,6 +588,9 @@ func TestTokenStore_RevocationOnStartup(t *testing.T) {
 	// Fake times in the past
 	for _, lease := range leases {
 		secret, err = client.Logical().Read(leasePath + lease.(string))
+		if err != nil {
+			t.Fatal(err)
+		}
 		var entry leaseEntry
 		if err := jsonutil.DecodeJSON([]byte(secret.Data["value"].(string)), &entry); err != nil {
 			t.Fatal(err)

@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package cert
 
 import (
@@ -9,6 +12,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/command/agent/auth"
+	"github.com/hashicorp/vault/sdk/helper/consts"
 )
 
 type certMethod struct {
@@ -19,6 +23,7 @@ type certMethod struct {
 	caCert     string
 	clientCert string
 	clientKey  string
+	reload     bool
 
 	// Client is the cached client to use if cert info was provided.
 	client *api.Client
@@ -72,6 +77,14 @@ func NewCertAuthMethod(conf *auth.AuthConfig) (auth.AuthMethod, error) {
 				return nil, errors.New("could not convert 'cert_key' config value to string")
 			}
 		}
+
+		reload, ok := conf.Config["reload"]
+		if ok {
+			c.reload, ok = reload.(bool)
+			if !ok {
+				return nil, errors.New("could not convert 'reload' config value to bool")
+			}
+		}
 	}
 
 	return c, nil
@@ -107,7 +120,7 @@ func (c *certMethod) AuthClient(client *api.Client) (*api.Client, error) {
 
 	if c.caCert != "" || (c.clientKey != "" && c.clientCert != "") {
 		// Return cached client if present
-		if c.client != nil {
+		if c.client != nil && !c.reload {
 			return c.client, nil
 		}
 
@@ -132,6 +145,9 @@ func (c *certMethod) AuthClient(client *api.Client) (*api.Client, error) {
 		clientToAuth, err = api.NewClient(config)
 		if err != nil {
 			return nil, err
+		}
+		if ns := client.Headers().Get(consts.NamespaceHeaderName); ns != "" {
+			clientToAuth.SetNamespace(ns)
 		}
 
 		// Cache the client for future use

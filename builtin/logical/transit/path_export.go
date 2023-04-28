@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package transit
 
 import (
@@ -27,6 +30,13 @@ const (
 func (b *backend) pathExportKeys() *framework.Path {
 	return &framework.Path{
 		Pattern: "export/" + framework.GenericNameRegex("type") + "/" + framework.GenericNameRegex("name") + framework.OptionalParamRegex("version"),
+
+		DisplayAttrs: &framework.DisplayAttributes{
+			OperationPrefix: operationPrefixTransit,
+			OperationVerb:   "export",
+			OperationSuffix: "key|key-version",
+		},
+
 		Fields: map[string]*framework.FieldSchema{
 			"type": {
 				Type:        framework.TypeString,
@@ -64,7 +74,7 @@ func (b *backend) pathPolicyExportRead(ctx context.Context, req *logical.Request
 		return logical.ErrorResponse(fmt.Sprintf("invalid export type: %s", exportType)), logical.ErrInvalidRequest
 	}
 
-	p, _, err := b.lm.GetPolicy(ctx, keysutil.PolicyRequest{
+	p, _, err := b.GetPolicy(ctx, keysutil.PolicyRequest{
 		Storage: req.Storage,
 		Name:    name,
 	}, b.GetRandomReader())

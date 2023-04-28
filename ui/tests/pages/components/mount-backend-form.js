@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) HashiCorp, Inc.
+ * SPDX-License-Identifier: MPL-2.0
+ */
+
 import { clickable, collection, fillable, text, value, attribute } from 'ember-cli-page-object';
 import fields from './form-field';
 import errorText from './alert-banner';
@@ -23,9 +28,7 @@ export default {
   async mount(type, path) {
     await this.selectType(type);
     if (path) {
-      await this.next()
-        .path(path)
-        .submit();
+      await this.next().path(path).submit();
     } else {
       await this.next().submit();
     }

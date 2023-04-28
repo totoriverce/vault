@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) HashiCorp, Inc.
+ * SPDX-License-Identifier: MPL-2.0
+ */
+
 import Store from '@ember-data/store';
 import { schedule } from '@ember/runloop';
 import { copy } from 'ember-copy';
@@ -29,8 +34,14 @@ export function keyForCache(query) {
 
 export default Store.extend({
   // this is a map of map that stores the caches
-  lazyCaches: computed(function() {
-    return new Map();
+  // eslint-disable-next-line
+  lazyCaches: computed({
+    get() {
+      return this._lazyCaches || new Map();
+    },
+    set(key, value) {
+      return (this._lazyCaches = value);
+    },
   }),
 
   setLazyCacheForModel(modelName, key, value) {
@@ -81,7 +92,7 @@ export default Store.extend({
     }
     return adapter
       .query(this, { modelName }, query)
-      .then(response => {
+      .then((response) => {
         const serializer = this.serializerFor(modelName);
         const datasetHelper = serializer.extractLazyPaginatedData;
         const dataset = datasetHelper
@@ -91,7 +102,7 @@ export default Store.extend({
         this.storeDataset(modelName, query, response, dataset);
         return this.fetchPage(modelName, query);
       })
-      .catch(function(e) {
+      .catch(function (e) {
         throw e;
       });
   },
@@ -99,7 +110,7 @@ export default Store.extend({
   filterData(filter, dataset) {
     let newData = dataset || [];
     if (filter) {
-      newData = dataset.filter(function(item) {
+      newData = dataset.filter(function (item) {
         const id = item.id || item;
         return id.toLowerCase().includes(filter.toLowerCase());
       });
@@ -141,10 +152,10 @@ export default Store.extend({
   // pushes records into the store and returns the result
   fetchPage(modelName, query) {
     const response = this.constructResponse(modelName, query);
-    this.peekAll(modelName).forEach(record => {
+    this.peekAll(modelName).forEach((record) => {
       record.unloadRecord();
     });
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       schedule('destroy', () => {
         this.push(
           this.serializerFor(modelName).normalizeResponse(
@@ -155,7 +166,7 @@ export default Store.extend({
             'query'
           )
         );
-        let model = this.peekAll(modelName).toArray();
+        const model = this.peekAll(modelName).toArray();
         model.set('meta', response.meta);
         resolve(model);
       });
@@ -178,7 +189,7 @@ export default Store.extend({
   },
 
   clearDataset(modelName) {
-    let cacheList = this.lazyCaches;
+    const cacheList = this.lazyCaches;
     if (!cacheList.size) return;
     if (modelName && cacheList.has(modelName)) {
       cacheList.delete(modelName);

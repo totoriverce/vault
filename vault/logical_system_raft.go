@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package vault
 
 import (
@@ -9,15 +12,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/proto"
+	wrapping "github.com/hashicorp/go-kms-wrapping/v2"
+	"github.com/hashicorp/go-uuid"
+	"github.com/hashicorp/vault/helper/constants"
+	"github.com/hashicorp/vault/helper/namespace"
+	"github.com/hashicorp/vault/physical/raft"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/hashicorp/vault/sdk/physical"
-
-	proto "github.com/golang/protobuf/proto"
-	wrapping "github.com/hashicorp/go-kms-wrapping"
-	uuid "github.com/hashicorp/go-uuid"
-	"github.com/hashicorp/vault/helper/namespace"
-	"github.com/hashicorp/vault/physical/raft"
+	"github.com/mitchellh/mapstructure"
 )
 
 // raftStoragePaths returns paths for use when raft is the storage mechanism.
@@ -152,8 +156,9 @@ func (b *SystemBackend) raftStoragePaths() []*framework.Path {
 			Pattern: "storage/raft/autopilot/state",
 			Operations: map[logical.Operation]framework.OperationHandler{
 				logical.ReadOperation: &framework.PathOperation{
-					Callback: b.handleStorageRaftAutopilotState(),
-					Summary:  "Returns the state of the raft cluster under integrated storage as seen by autopilot.",
+					Callback:                  b.verifyDROperationTokenOnSecondary(b.handleStorageRaftAutopilotState(), false),
+					Summary:                   "Returns the state of the raft cluster under integrated storage as seen by autopilot.",
+					ForwardPerformanceStandby: true,
 				},
 			},
 
@@ -162,7 +167,6 @@ func (b *SystemBackend) raftStoragePaths() []*framework.Path {
 		},
 		{
 			Pattern: "storage/raft/autopilot/configuration",
-
 			Fields: map[string]*framework.FieldSchema{
 				"cleanup_dead_servers": {
 					Type:        framework.TypeBool,
@@ -188,14 +192,18 @@ func (b *SystemBackend) raftStoragePaths() []*framework.Path {
 					Type:        framework.TypeDurationSecond,
 					Description: "Minimum amount of time a server must be in a stable, healthy state before it can be added to the cluster.",
 				},
+				"disable_upgrade_migration": {
+					Type:        framework.TypeBool,
+					Description: "Whether or not to perform automated version upgrades.",
+				},
 			},
 
 			Operations: map[logical.Operation]framework.OperationHandler{
 				logical.ReadOperation: &framework.PathOperation{
-					Callback: b.handleStorageRaftAutopilotConfigRead(),
+					Callback: b.verifyDROperationTokenOnSecondary(b.handleStorageRaftAutopilotConfigRead(), false),
 				},
 				logical.UpdateOperation: &framework.PathOperation{
-					Callback: b.handleStorageRaftAutopilotConfigUpdate(),
+					Callback: b.verifyDROperationTokenOnSecondary(b.handleStorageRaftAutopilotConfigUpdate(), false),
 				},
 			},
 
@@ -356,13 +364,16 @@ func (b *SystemBackend) handleRaftBootstrapAnswerWrite() framework.OperationFunc
 		var desiredSuffrage string
 		switch nonVoter {
 		case true:
-			desiredSuffrage = "voter"
-		default:
 			desiredSuffrage = "non-voter"
+		default:
+			desiredSuffrage = "voter"
 		}
 
 		if b.Core.raftFollowerStates != nil {
-			b.Core.raftFollowerStates.Update(serverID, 0, 0, desiredSuffrage)
+			b.Core.raftFollowerStates.Update(&raft.EchoRequestUpdate{
+				NodeID:          serverID,
+				DesiredSuffrage: desiredSuffrage,
+			})
 		}
 
 		peers, err := raftBackend.Peers(ctx)
@@ -417,15 +428,14 @@ func (b *SystemBackend) handleStorageRaftAutopilotState() framework.OperationFun
 			return nil, nil
 		}
 
+		data := make(map[string]interface{})
+		err = mapstructure.Decode(state, &data)
+		if err != nil {
+			return nil, err
+		}
+
 		return &logical.Response{
-			Data: map[string]interface{}{
-				"healthy":           state.Healthy,
-				"failure_tolerance": state.FailureTolerance,
-				"servers":           state.Servers,
-				"leader":            state.Leader,
-				"voters":            state.Voters,
-				"non_voters":        state.NonVoters,
-			},
+			Data: data,
 		}, nil
 	}
 }
@@ -450,6 +460,7 @@ func (b *SystemBackend) handleStorageRaftAutopilotConfigRead() framework.Operati
 				"max_trailing_logs":                  config.MaxTrailingLogs,
 				"min_quorum":                         config.MinQuorum,
 				"server_stabilization_time":          config.ServerStabilizationTime.String(),
+				"disable_upgrade_migration":          config.DisableUpgradeMigration,
 			},
 		}, nil
 	}
@@ -506,6 +517,14 @@ func (b *SystemBackend) handleStorageRaftAutopilotConfigUpdate() framework.Opera
 			config.ServerStabilizationTime = time.Duration(serverStabilizationTime.(int)) * time.Second
 			persist = true
 		}
+		disableUpgradeMigration, ok := d.GetOk("disable_upgrade_migration")
+		if ok {
+			if !constants.IsEnterprise {
+				return logical.ErrorResponse("disable_upgrade_migration is only available in Vault Enterprise"), logical.ErrInvalidRequest
+			}
+			config.DisableUpgradeMigration = disableUpgradeMigration.(bool)
+			persist = true
+		}
 
 		effectiveConf := raftBackend.AutopilotConfig()
 		effectiveConf.Merge(config)
@@ -556,7 +575,7 @@ func (b *SystemBackend) handleStorageRaftSnapshotWrite(force bool) framework.Ope
 		case err == nil:
 		case strings.Contains(err.Error(), "failed to open the sealed hashes"):
 			switch b.Core.seal.BarrierType() {
-			case wrapping.Shamir:
+			case wrapping.WrapperTypeShamir:
 				return logical.ErrorResponse("could not verify hash file, possibly the snapshot is using a different set of unseal keys; use the snapshot-force API to bypass this check"), logical.ErrInvalidRequest
 			default:
 				return logical.ErrorResponse("could not verify hash file, possibly the snapshot is using a different autoseal key; use the snapshot-force API to bypass this check"), logical.ErrInvalidRequest
@@ -573,7 +592,9 @@ func (b *SystemBackend) handleStorageRaftSnapshotWrite(force bool) framework.Ope
 			defer cleanup()
 
 			// Grab statelock
-			if stopped := grabLockOrStop(b.Core.stateLock.Lock, b.Core.stateLock.Unlock, b.Core.standbyStopCh.Load().(chan struct{})); stopped {
+			l := newLockGrabber(b.Core.stateLock.Lock, b.Core.stateLock.Unlock, b.Core.standbyStopCh.Load().(chan struct{}))
+			go l.grab()
+			if stopped := l.lockOrStop(); stopped {
 				b.Core.logger.Error("not applying snapshot; shutting down")
 				return
 			}

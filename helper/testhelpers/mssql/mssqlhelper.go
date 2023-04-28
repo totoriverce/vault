@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package mssqlhelper
 
 import (
@@ -8,7 +11,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/hashicorp/vault/helper/testhelpers/docker"
+	"github.com/hashicorp/vault/sdk/helper/docker"
 )
 
 const mssqlPassword = "yourStrong(!)Password"
@@ -32,6 +35,11 @@ func PrepareMSSQLTestContainer(t *testing.T) (cleanup func(), retURL string) {
 			ImageTag:      "2017-latest-ubuntu",
 			Env:           []string{"ACCEPT_EULA=Y", "SA_PASSWORD=" + mssqlPassword},
 			Ports:         []string{"1433/tcp"},
+			LogConsumer: func(s string) {
+				if t.Failed() {
+					t.Logf("container logs: %s", s)
+				}
+			},
 		})
 		if err != nil {
 			t.Fatalf("Could not start docker MSSQL: %s", err)
@@ -53,6 +61,8 @@ func connectMSSQL(ctx context.Context, host string, port int) (docker.ServiceCon
 		User:   url.UserPassword("sa", mssqlPassword),
 		Host:   fmt.Sprintf("%s:%d", host, port),
 	}
+	// Attempt to address connection flakiness within tests such as "Failed to initialize: error verifying connection ..."
+	u.Query().Add("Connection Timeout", "30")
 
 	db, err := sql.Open("mssql", u.String())
 	if err != nil {

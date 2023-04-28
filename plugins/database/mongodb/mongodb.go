@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package mongodb
 
 import (
@@ -8,9 +11,9 @@ import (
 	"strings"
 
 	log "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/go-secure-stdlib/strutil"
 	dbplugin "github.com/hashicorp/vault/sdk/database/dbplugin/v5"
 	"github.com/hashicorp/vault/sdk/database/helper/dbutil"
-	"github.com/hashicorp/vault/sdk/helper/strutil"
 	"github.com/hashicorp/vault/sdk/helper/template"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
@@ -210,9 +213,19 @@ func (m *MongoDB) DeleteUser(ctx context.Context, req dbplugin.DeleteUserRequest
 		db = "admin"
 	}
 
+	// Set the write concern. The default is majority.
+	writeConcern := writeconcern.New(writeconcern.WMajority())
+	opts, err := m.getWriteConcern()
+	if err != nil {
+		return dbplugin.DeleteUserResponse{}, err
+	}
+	if opts != nil {
+		writeConcern = opts.WriteConcern
+	}
+
 	dropUserCmd := &dropUserCommand{
 		Username:     req.Username,
-		WriteConcern: writeconcern.New(writeconcern.WMajority()),
+		WriteConcern: writeConcern,
 	}
 
 	err = m.runCommandWithRetry(ctx, db, dropUserCmd)

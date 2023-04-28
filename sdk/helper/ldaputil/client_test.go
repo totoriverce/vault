@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package ldaputil
 
 import (
@@ -32,6 +35,9 @@ func TestLDAPEscape(t *testing.T) {
 		"test\\hello": "test\\\\hello",
 		"  test  ":    "\\  test \\ ",
 		"":            "",
+		"\\test":      "\\\\test",
+		"test\\":      "test\\\\",
+		"test\\ ":     "test\\\\\\ ",
 	}
 
 	for test, answer := range testcases {
@@ -43,7 +49,7 @@ func TestLDAPEscape(t *testing.T) {
 }
 
 func TestGetTLSConfigs(t *testing.T) {
-	config := testConfig()
+	config := testConfig(t)
 	if err := config.Validate(); err != nil {
 		t.Fatal(err)
 	}

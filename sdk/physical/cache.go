@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package physical
 
 import (
@@ -29,7 +32,6 @@ var cacheExceptionsPaths = []string{
 	"sys/expire/",
 	"core/poison-pill",
 	"core/raft/tls",
-	"core/license",
 }
 
 // CacheRefreshContext returns a context with an added value denoting if the
@@ -184,7 +186,7 @@ func (c *Cache) Get(ctx context.Context, key string) (*Entry, error) {
 		return nil, err
 	}
 
-	// Cache the result
+	// Cache the result, even if nil
 	c.lru.Add(key, ent)
 
 	return ent, nil

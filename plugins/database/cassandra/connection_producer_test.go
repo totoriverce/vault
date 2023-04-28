@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package cassandra
 
 import (
@@ -17,11 +20,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	insecureFileMounts = map[string]string{
-		"test-fixtures/no_tls/cassandra.yaml": "/etc/cassandra/cassandra.yaml",
-	}
-)
+var insecureFileMounts = map[string]string{
+	"test-fixtures/no_tls/cassandra.yaml": "/etc/cassandra/cassandra.yaml",
+}
 
 func TestSelfSignedCA(t *testing.T) {
 	copyFromTo := map[string]string{
@@ -42,7 +43,7 @@ func TestSelfSignedCA(t *testing.T) {
 
 	host, cleanup := cassandra.PrepareTestContainer(t,
 		cassandra.ContainerName("cassandra"),
-		cassandra.Image("bitnami/cassandra", "latest"),
+		cassandra.Image("bitnami/cassandra", "3.11.11"),
 		cassandra.CopyFromTo(copyFromTo),
 		cassandra.SslOpts(sslOpts),
 		cassandra.Env("CASSANDRA_KEYSTORE_PASSWORD=cassandra"),

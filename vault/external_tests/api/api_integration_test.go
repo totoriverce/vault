@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package api
 
 import (
@@ -12,6 +15,7 @@ import (
 	"github.com/hashicorp/vault/builtin/logical/database"
 	"github.com/hashicorp/vault/builtin/logical/pki"
 	"github.com/hashicorp/vault/builtin/logical/transit"
+	"github.com/hashicorp/vault/helper/benchhelpers"
 	"github.com/hashicorp/vault/helper/builtinplugins"
 	"github.com/hashicorp/vault/http"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -57,14 +61,15 @@ func testVaultServerUnseal(t testing.TB) (*api.Client, []string, func()) {
 func testVaultServerCoreConfig(t testing.TB, coreConfig *vault.CoreConfig) (*api.Client, []string, func()) {
 	t.Helper()
 
-	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
+	cluster := vault.NewTestCluster(benchhelpers.TBtoT(t), coreConfig, &vault.TestClusterOptions{
 		HandlerFunc: http.Handler,
+		NumCores:    1,
 	})
 	cluster.Start()
 
 	// Make it easy to get access to the active
 	core := cluster.Cores[0].Core
-	vault.TestWaitActive(t, core)
+	vault.TestWaitActive(benchhelpers.TBtoT(t), core)
 
 	// Get the client already setup for us!
 	client := cluster.Cores[0].Client
