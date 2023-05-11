@@ -25,11 +25,12 @@ type LoginCommand struct {
 
 	Handlers map[string]LoginHandler
 
-	flagMethod    string
-	flagPath      string
-	flagNoStore   bool
-	flagNoPrint   bool
-	flagTokenOnly bool
+	flagMethod     string
+	flagPath       string
+	flagNoStore    bool
+	flagPrintToken bool
+	flagNoPrint    bool
+	flagTokenOnly  bool
 
 	testStdin io.Reader // for tests
 }
@@ -123,6 +124,14 @@ func (c *LoginCommand) Flags() *FlagSets {
 	})
 
 	f.BoolVar(&BoolVar{
+		Name:    "print-token",
+		Target:  &c.flagPrintToken,
+		Default: false,
+		Usage: "For security purposes, we do not print the token to stdout by default." +
+			"The token will be still be stored to the configured token helper.",
+	})
+
+	f.BoolVar(&BoolVar{
 		Name:    "token-only",
 		Target:  &c.flagTokenOnly,
 		Default: false,
@@ -159,9 +168,9 @@ func (c *LoginCommand) Run(args []string) int {
 		c.flagField = "token"
 	}
 
-	if c.flagNoStore && c.flagNoPrint {
+	if c.flagNoStore && !c.flagPrintToken {
 		c.UI.Error(wrapAtLength(
-			"-no-store and -no-print cannot be used together"))
+			"-no-store cannot be used without -print-token"))
 		return 1
 	}
 
@@ -328,6 +337,10 @@ func (c *LoginCommand) Run(args []string) int {
 		return 0
 	}
 
+	if !c.flagPrintToken {
+		secret.Auth.ClientToken = "REDACTED"
+	}
+
 	// If the user requested a particular field, print that out now since we
 	// are likely piping to another process.
 	if c.flagField != "" {
@@ -337,8 +350,8 @@ func (c *LoginCommand) Run(args []string) int {
 	// Print some yay! text, but only in table mode.
 	if Format(c.UI) == "table" {
 		c.UI.Output(wrapAtLength(
-			"Success! You are now authenticated. The token information displayed "+
-				"below is already stored in the token helper. You do NOT need to run "+
+			"Success! You are now authenticated. The token information "+
+				"below is stored in the token helper. You do NOT need to run "+
 				"\"vault login\" again. Future Vault requests will automatically use "+
 				"this token.") + "\n")
 	}
