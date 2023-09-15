@@ -114,6 +114,11 @@ const (
 	// MfaAuthResponse when the value is not specified in the server config
 	defaultMFAAuthResponseTTL = 300 * time.Second
 
+	// defaultUserLockoutLogInterval is the default duration that Vault will
+	// emit a log informing that a user lockout is in effect when the value
+	// is not specified in the server config
+	defaultUserLockoutLogInterval = 1 * time.Minute
+
 	// defaultMaxTOTPValidateAttempts is the default value for the number
 	// of failed attempts to validate a request subject to TOTP MFA. If the
 	// number of failed totp passcode validations exceeds this max value, the
@@ -651,7 +656,8 @@ type Core struct {
 
 	updateLockedUserEntriesCancel context.CancelFunc
 
-	lockoutLoggerCancel context.CancelFunc
+	lockoutLoggerCancel    context.CancelFunc
+	userLockoutLogInterval time.Duration
 
 	// number of workers to use for lease revocation in the expiration manager
 	numExpirationWorkers int
@@ -883,6 +889,8 @@ type CoreConfig struct {
 	AdministrativeNamespacePath string
 
 	NumRollbackWorkers int
+
+	UserLockoutLogInterval time.Duration
 }
 
 // GetServiceRegistration returns the config's ServiceRegistration, or nil if it does
@@ -921,6 +929,10 @@ func CreateCore(conf *CoreConfig) (*Core, error) {
 	}
 	if conf.DefaultLeaseTTL > conf.MaxLeaseTTL {
 		return nil, fmt.Errorf("cannot have DefaultLeaseTTL larger than MaxLeaseTTL")
+	}
+
+	if conf.UserLockoutLogInterval == 0 {
+		conf.UserLockoutLogInterval = defaultUserLockoutLogInterval
 	}
 
 	// Validate the advertise addr if its given to us
@@ -1056,6 +1068,7 @@ func CreateCore(conf *CoreConfig) (*Core, error) {
 		disableSSCTokens:               conf.DisableSSCTokens,
 		effectiveSDKVersion:            effectiveSDKVersion,
 		userFailedLoginInfo:            make(map[FailedLoginUser]*FailedLoginInfo),
+		userLockoutLogInterval:         conf.UserLockoutLogInterval,
 		experiments:                    conf.Experiments,
 		pendingRemovalMountsAllowed:    conf.PendingRemovalMountsAllowed,
 		expirationRevokeRetryBase:      conf.ExpirationRevokeRetryBase,
@@ -3658,8 +3671,7 @@ func (c *Core) startLockoutLogger() {
 	ctx, cancelFunc := context.WithCancel(c.activeContext)
 	c.lockoutLoggerCancel = cancelFunc
 
-	// Perform first check
-	// Check for lockout entries
+	// Perform first check for lockout entries
 	lockedUserCount, err := c.runLockedUserEntryUpdates(ctx)
 	if err != nil {
 		c.Logger().Error("error starting lockout logger:", err)
@@ -3675,7 +3687,7 @@ func (c *Core) startLockoutLogger() {
 
 	// Start lockout watcher
 	go func() {
-		ticker := time.NewTicker(1 * time.Minute)
+		ticker := time.NewTicker(c.userLockoutLogInterval)
 		for {
 			select {
 			case <-ticker.C:
