@@ -1,6 +1,6 @@
 /**
  * Copyright (c) HashiCorp, Inc.
- * SPDX-License-Identifier: MPL-2.0
+ * SPDX-License-Identifier: BUSL-1.1
  */
 
 .popup-menu-content,
@@ -129,16 +129,6 @@
     min-width: 0;
     padding: 0;
     width: 2.5rem;
-  }
-}
-
-.status-menu-content {
-  margin-top: 8px;
-
-  .box {
-    @include until($mobile) {
-      width: $drawer-width - ($spacing-xs * 2);
-    }
   }
 }
 

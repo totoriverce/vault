@@ -24,6 +24,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/client"
@@ -41,26 +42,27 @@ type Runner struct {
 }
 
 type RunOptions struct {
-	ImageRepo         string
-	ImageTag          string
-	ContainerName     string
-	Cmd               []string
-	Entrypoint        []string
-	Env               []string
-	NetworkName       string
-	NetworkID         string
-	CopyFromTo        map[string]string
-	Ports             []string
-	DoNotAutoRemove   bool
-	AuthUsername      string
-	AuthPassword      string
-	OmitLogTimestamps bool
-	LogConsumer       func(string)
-	Capabilities      []string
-	PreDelete         bool
-	PostStart         func(string, string) error
-	LogStderr         io.Writer
-	LogStdout         io.Writer
+	ImageRepo              string
+	ImageTag               string
+	ContainerName          string
+	Cmd                    []string
+	Entrypoint             []string
+	Env                    []string
+	NetworkName            string
+	NetworkID              string
+	CopyFromTo             map[string]string
+	Ports                  []string
+	DoNotAutoRemove        bool
+	AuthUsername           string
+	AuthPassword           string
+	OmitLogTimestamps      bool
+	LogConsumer            func(string)
+	Capabilities           []string
+	PreDelete              bool
+	PostStart              func(string, string) error
+	LogStderr              io.Writer
+	LogStdout              io.Writer
+	VolumeNameToMountPoint map[string]string
 }
 
 func NewDockerAPI() (*client.Client, error) {
@@ -406,6 +408,15 @@ func (d *Runner) Start(ctx context.Context, addSuffix, forceLocalAddr bool) (*St
 		_, _ = ioutil.ReadAll(resp)
 	}
 
+	for vol, mtpt := range d.RunOptions.VolumeNameToMountPoint {
+		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
+			Type:     "volume",
+			Source:   vol,
+			Target:   mtpt,
+			ReadOnly: false,
+		})
+	}
+
 	c, err := d.DockerAPI.ContainerCreate(ctx, cfg, hostConfig, netConfig, nil, cfg.Hostname)
 	if err != nil {
 		return nil, fmt.Errorf("container create failed: %v", err)
@@ -550,6 +561,10 @@ func (u RunCmdUser) Apply(cfg *types.ExecConfig) error {
 }
 
 func (d *Runner) RunCmdWithOutput(ctx context.Context, container string, cmd []string, opts ...RunCmdOpt) ([]byte, []byte, int, error) {
+	return RunCmdWithOutput(d.DockerAPI, ctx, container, cmd, opts...)
+}
+
+func RunCmdWithOutput(api *client.Client, ctx context.Context, container string, cmd []string, opts ...RunCmdOpt) ([]byte, []byte, int, error) {
 	runCfg := types.ExecConfig{
 		AttachStdout: true,
 		AttachStderr: true,
@@ -562,12 +577,12 @@ func (d *Runner) RunCmdWithOutput(ctx context.Context, container string, cmd []s
 		}
 	}
 
-	ret, err := d.DockerAPI.ContainerExecCreate(ctx, container, runCfg)
+	ret, err := api.ContainerExecCreate(ctx, container, runCfg)
 	if err != nil {
 		return nil, nil, -1, fmt.Errorf("error creating execution environment: %v\ncfg: %v\n", err, runCfg)
 	}
 
-	resp, err := d.DockerAPI.ContainerExecAttach(ctx, ret.ID, types.ExecStartCheck{})
+	resp, err := api.ContainerExecAttach(ctx, ret.ID, types.ExecStartCheck{})
 	if err != nil {
 		return nil, nil, -1, fmt.Errorf("error attaching to command execution: %v\ncfg: %v\nret: %v\n", err, runCfg, ret)
 	}
@@ -583,7 +598,7 @@ func (d *Runner) RunCmdWithOutput(ctx context.Context, container string, cmd []s
 	stderr := stderrB.Bytes()
 
 	// Fetch return code.
-	info, err := d.DockerAPI.ContainerExecInspect(ctx, ret.ID)
+	info, err := api.ContainerExecInspect(ctx, ret.ID)
 	if err != nil {
 		return stdout, stderr, -1, fmt.Errorf("error reading command exit code: %v", err)
 	}
@@ -592,6 +607,10 @@ func (d *Runner) RunCmdWithOutput(ctx context.Context, container string, cmd []s
 }
 
 func (d *Runner) RunCmdInBackground(ctx context.Context, container string, cmd []string, opts ...RunCmdOpt) (string, error) {
+	return RunCmdInBackground(d.DockerAPI, ctx, container, cmd, opts...)
+}
+
+func RunCmdInBackground(api *client.Client, ctx context.Context, container string, cmd []string, opts ...RunCmdOpt) (string, error) {
 	runCfg := types.ExecConfig{
 		AttachStdout: true,
 		AttachStderr: true,
@@ -604,12 +623,12 @@ func (d *Runner) RunCmdInBackground(ctx context.Context, container string, cmd [
 		}
 	}
 
-	ret, err := d.DockerAPI.ContainerExecCreate(ctx, container, runCfg)
+	ret, err := api.ContainerExecCreate(ctx, container, runCfg)
 	if err != nil {
 		return "", fmt.Errorf("error creating execution environment: %w\ncfg: %v\n", err, runCfg)
 	}
 
-	err = d.DockerAPI.ContainerExecStart(ctx, ret.ID, types.ExecStartCheck{})
+	err = api.ContainerExecStart(ctx, ret.ID, types.ExecStartCheck{})
 	if err != nil {
 		return "", fmt.Errorf("error starting command execution: %w\ncfg: %v\nret: %v\n", err, runCfg, ret)
 	}

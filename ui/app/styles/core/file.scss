@@ -1,6 +1,6 @@
 /**
  * Copyright (c) HashiCorp, Inc.
- * SPDX-License-Identifier: MPL-2.0
+ * SPDX-License-Identifier: BUSL-1.1
  */
 
 // This file defines the styles for file, file-cta, file-delete-button, file-icon, file-input,  file-label, file-name.
@@ -17,10 +17,10 @@
   height: 2.25em;
   justify-content: flex-start;
   min-width: auto;
-  padding-bottom: calc(0.375em -1px);
+  padding-bottom: calc(0.375em - 1px);
   padding-left: 1em;
   padding-right: 1em;
-  padding-top: calc(0.375em -1px);
+  padding-top: calc(0.375em - 1px);
   position: relative;
   vertical-align: top;
   white-space: nowrap;
