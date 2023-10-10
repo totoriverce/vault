@@ -99,7 +99,6 @@ var (
 		cubbyholeMountPath,
 		systemMountPath,
 		"audit/",
-		identityMountPath,
 	}
 
 	// singletonMounts can only exist in one location and are
