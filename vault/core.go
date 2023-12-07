@@ -656,7 +656,7 @@ type Core struct {
 
 	updateLockedUserEntriesCancel context.CancelFunc
 
-	lockoutLoggerCancel    context.CancelFunc
+	lockoutLoggerCancel    atomic.Pointer[context.CancelFunc]
 	userLockoutLogInterval time.Duration
 
 	// number of workers to use for lease revocation in the expiration manager
@@ -3664,12 +3664,12 @@ func (c *Core) setupCachedMFAResponseAuth() {
 
 func (c *Core) startLockoutLogger() {
 	// Are we already running a logger
-	if c.lockoutLoggerCancel != nil {
+	if c.lockoutLoggerCancel.Load() != nil {
 		return
 	}
 
 	ctx, cancelFunc := context.WithCancel(c.activeContext)
-	c.lockoutLoggerCancel = cancelFunc
+	c.lockoutLoggerCancel.Store(&cancelFunc)
 
 	// Perform first check for lockout entries
 	lockedUserCount := c.getUserFailedLoginCount(ctx)
@@ -3696,11 +3696,11 @@ func (c *Core) startLockoutLogger() {
 				}
 				c.Logger().Info("user lockout(s) cleared")
 				ticker.Stop()
-				c.lockoutLoggerCancel = nil
+				c.lockoutLoggerCancel.Store(nil)
 				return
 			case <-ctx.Done():
 				ticker.Stop()
-				c.lockoutLoggerCancel = nil
+				c.lockoutLoggerCancel.Store(nil)
 				return
 			}
 		}
