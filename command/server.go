@@ -135,6 +135,7 @@ type ServerCommand struct {
 	flagDevLatency         int
 	flagDevLatencyJitter   int
 	flagDevLeasedKV        bool
+	flagDevNoKV            bool
 	flagDevKVV1            bool
 	flagDevSkipInit        bool
 	flagDevThreeNode       bool
@@ -339,6 +340,13 @@ func (c *ServerCommand) Flags() *FlagSets {
 	f.BoolVar(&BoolVar{
 		Name:    "dev-leased-kv",
 		Target:  &c.flagDevLeasedKV,
+		Default: false,
+		Hidden:  true,
+	})
+
+	f.BoolVar(&BoolVar{
+		Name:    "dev-no-kv",
+		Target:  &c.flagDevNoKV,
 		Default: false,
 		Hidden:  true,
 	})
@@ -1027,7 +1035,7 @@ func (c *ServerCommand) Run(args []string) int {
 	}
 
 	// Automatically enable dev mode if other dev flags are provided.
-	if c.flagDevConsul || c.flagDevHA || c.flagDevTransactional || c.flagDevLeasedKV || c.flagDevThreeNode || c.flagDevFourCluster || c.flagDevAutoSeal || c.flagDevKVV1 || c.flagDevTLS {
+	if c.flagDevConsul || c.flagDevHA || c.flagDevTransactional || c.flagDevLeasedKV || c.flagDevThreeNode || c.flagDevFourCluster || c.flagDevAutoSeal || c.flagDevKVV1 || c.flagDevNoKV || c.flagDevTLS {
 		c.flagDev = true
 	}
 
@@ -2047,29 +2055,31 @@ func (c *ServerCommand) enableDev(core *vault.Core, coreConfig *vault.CoreConfig
 		}
 	}
 
-	kvVer := "2"
-	if c.flagDevKVV1 || c.flagDevLeasedKV {
-		kvVer = "1"
-	}
-	req := &logical.Request{
-		Operation:   logical.UpdateOperation,
-		ClientToken: init.RootToken,
-		Path:        "sys/mounts/secret",
-		Data: map[string]interface{}{
-			"type":        "kv",
-			"path":        "secret/",
-			"description": "key/value secret storage",
-			"options": map[string]string{
-				"version": kvVer,
+	if !c.flagDevNoKV {
+		kvVer := "2"
+		if c.flagDevKVV1 || c.flagDevLeasedKV {
+			kvVer = "1"
+		}
+		req := &logical.Request{
+			Operation:   logical.UpdateOperation,
+			ClientToken: init.RootToken,
+			Path:        "sys/mounts/secret",
+			Data: map[string]interface{}{
+				"type":        "kv",
+				"path":        "secret/",
+				"description": "key/value secret storage",
+				"options": map[string]string{
+					"version": kvVer,
+				},
 			},
-		},
-	}
-	resp, err := core.HandleRequest(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("error creating default K/V store: %w", err)
-	}
-	if resp.IsError() {
-		return nil, fmt.Errorf("failed to create default K/V store: %w", resp.Error())
+		}
+		resp, err := core.HandleRequest(ctx, req)
+		if err != nil {
+			return nil, fmt.Errorf("error creating default K/V store: %w", err)
+		}
+		if resp.IsError() {
+			return nil, fmt.Errorf("failed to create default K/V store: %w", resp.Error())
+		}
 	}
 
 	return init, nil
