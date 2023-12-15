@@ -3675,9 +3675,8 @@ func (c *Core) startLockoutLogger() {
 	lockedUserCount := c.getUserFailedLoginCount(ctx)
 
 	if lockedUserCount > 0 {
-		c.Logger().Warn("user lockout(s) in effect")
+		c.Logger().Warn("user lockout(s) in effect; review by using /sys/locked-users endpoint")
 	} else {
-		// We shouldn't end up here
 		return
 	}
 
@@ -3691,16 +3690,16 @@ func (c *Core) startLockoutLogger() {
 				lockedUserCount := c.getUserFailedLoginCount(ctx)
 
 				if lockedUserCount > 0 {
-					c.Logger().Warn("user lockout(s) in effect")
+					c.Logger().Warn("user lockout(s) in effect; review by using /sys/locked-users endpoint")
 					break
 				}
 				c.Logger().Info("user lockout(s) cleared")
 				ticker.Stop()
-				c.lockoutLoggerCancel.Store(nil)
+				c.lockoutLoggerCancel.CompareAndSwap(c.lockoutLoggerCancel.Load(), nil)
 				return
 			case <-ctx.Done():
 				ticker.Stop()
-				c.lockoutLoggerCancel.Store(nil)
+				c.lockoutLoggerCancel.CompareAndSwap(c.lockoutLoggerCancel.Load(), nil)
 				return
 			}
 		}
