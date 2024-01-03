@@ -28,11 +28,11 @@ import (
 	credAppRole "github.com/hashicorp/vault/builtin/credential/approle"
 	"github.com/hashicorp/vault/command/agent"
 	agentConfig "github.com/hashicorp/vault/command/agent/config"
+	"github.com/hashicorp/vault/helper/testhelpers/corehelpers"
 	"github.com/hashicorp/vault/helper/testhelpers/minimal"
 	"github.com/hashicorp/vault/helper/useragent"
 	vaulthttp "github.com/hashicorp/vault/http"
 	"github.com/hashicorp/vault/sdk/helper/consts"
-	"github.com/hashicorp/vault/sdk/helper/logging"
 	"github.com/hashicorp/vault/sdk/helper/pointerutil"
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/hashicorp/vault/vault"
@@ -106,7 +106,6 @@ func TestAgent_ExitAfterAuth(t *testing.T) {
 }
 
 func testAgentExitAfterAuth(t *testing.T, viaFlag bool) {
-	logger := logging.NewVaultLogger(hclog.Trace)
 	coreConfig := &vault.CoreConfig{
 		CredentialBackends: map[string]logical.Factory{
 			"jwt": vaultjwt.Factory,
@@ -190,8 +189,6 @@ func testAgentExitAfterAuth(t *testing.T, viaFlag bool) {
 	jwtToken, _ := agent.GetTestJWT(t)
 	if err := os.WriteFile(in, []byte(jwtToken), 0o600); err != nil {
 		t.Fatal(err)
-	} else {
-		logger.Trace("wrote test jwt", "path", in)
 	}
 
 	exitAfterAuthTemplText := "exit_after_auth = true"
@@ -229,13 +226,11 @@ auto_auth {
 	config = fmt.Sprintf(config, exitAfterAuthTemplText, in, sink1, sink2)
 	if err := os.WriteFile(conf, []byte(config), 0o600); err != nil {
 		t.Fatal(err)
-	} else {
-		logger.Trace("wrote test config", "path", conf)
 	}
 
 	doneCh := make(chan struct{})
 	go func() {
-		ui, cmd := testAgentCommand(t, logger)
+		ui, cmd := testAgentCommand(t, corehelpers.NewTestLogger(t).Named("agent"))
 		cmd.client = client
 
 		args := []string{"-config", conf}
@@ -308,7 +303,6 @@ func TestAgent_RequireRequestHeader(t *testing.T) {
 	//----------------------------------------------------
 
 	// Start a vault server
-	logger := logging.NewVaultLogger(hclog.Trace)
 	cluster := vault.NewTestCluster(t,
 		&vault.CoreConfig{
 			CredentialBackends: map[string]logical.Factory{
@@ -372,7 +366,7 @@ listener "tcp" {
 	defer os.Remove(configPath)
 
 	// Start the agent
-	ui, cmd := testAgentCommand(t, logger)
+	ui, cmd := testAgentCommand(t, corehelpers.NewTestLogger(t).Named("agent"))
 	cmd.client = serverClient
 	cmd.startedCh = make(chan struct{})
 
@@ -457,7 +451,6 @@ listener "tcp" {
 // non-zero code if configured to force the use of an auto-auth token without
 // configuring the auto_auth block
 func TestAgent_RequireAutoAuthWithForce(t *testing.T) {
-	logger := logging.NewVaultLogger(hclog.Trace)
 	// Create a config file
 	config := fmt.Sprintf(`
 cache {
@@ -474,7 +467,7 @@ listener "tcp" {
 	defer os.Remove(configPath)
 
 	// Start the agent
-	ui, cmd := testAgentCommand(t, logger)
+	ui, cmd := testAgentCommand(t, corehelpers.NewTestLogger(t).Named("agent"))
 	cmd.startedCh = make(chan struct{})
 
 	code := cmd.Run([]string{"-config", configPath})
@@ -493,7 +486,6 @@ func TestAgent_Template_UserAgent(t *testing.T) {
 	//----------------------------------------------------
 	// Start the server and agent
 	//----------------------------------------------------
-	logger := logging.NewVaultLogger(hclog.Trace)
 	var h userAgentHandler
 	cluster := vault.NewTestCluster(t,
 		&vault.CoreConfig{
@@ -587,7 +579,7 @@ auto_auth {
 	defer os.Remove(configPath)
 
 	// Start the agent
-	ui, cmd := testAgentCommand(t, logger)
+	ui, cmd := testAgentCommand(t, corehelpers.NewTestLogger(t).Named("agent"))
 	cmd.client = serverClient
 	cmd.startedCh = make(chan struct{})
 
@@ -674,7 +666,6 @@ func TestAgent_Template_Basic(t *testing.T) {
 	//----------------------------------------------------
 	// Start the server and agent
 	//----------------------------------------------------
-	logger := logging.NewVaultLogger(hclog.Trace)
 	cluster := vault.NewTestCluster(t,
 		&vault.CoreConfig{
 			CredentialBackends: map[string]logical.Factory{
@@ -792,7 +783,7 @@ auto_auth {
 			defer os.Remove(configPath)
 
 			// Start the agent
-			ui, cmd := testAgentCommand(t, logger)
+			ui, cmd := testAgentCommand(t, corehelpers.NewTestLogger(t).Named("agent"))
 			cmd.client = serverClient
 			cmd.startedCh = make(chan struct{})
 
@@ -980,7 +971,6 @@ func TestAgent_Template_VaultClientFromEnv(t *testing.T) {
 	//----------------------------------------------------
 	// Start the server and agent
 	//----------------------------------------------------
-	logger := logging.NewVaultLogger(hclog.Trace)
 	cluster := vault.NewTestCluster(t,
 		&vault.CoreConfig{
 			CredentialBackends: map[string]logical.Factory{
@@ -1070,7 +1060,7 @@ auto_auth {
 			defer os.Remove(configPath)
 
 			// Start the agent
-			ui, cmd := testAgentCommand(t, logger)
+			ui, cmd := testAgentCommand(t, corehelpers.NewTestLogger(t).Named("agent"))
 			cmd.client = serverClient
 			cmd.startedCh = make(chan struct{})
 
@@ -1158,7 +1148,6 @@ func TestAgent_Template_ExitCounter(t *testing.T) {
 	//----------------------------------------------------
 	// Start the server and agent
 	//----------------------------------------------------
-	logger := logging.NewVaultLogger(hclog.Trace)
 	cluster := vault.NewTestCluster(t,
 		&vault.CoreConfig{
 			CredentialBackends: map[string]logical.Factory{
@@ -1247,7 +1236,7 @@ exit_after_auth = true
 	defer os.Remove(configPath)
 
 	// Start the agent
-	ui, cmd := testAgentCommand(t, logger)
+	ui, cmd := testAgentCommand(t, corehelpers.NewTestLogger(t).Named("agent"))
 	cmd.client = serverClient
 	cmd.startedCh = make(chan struct{})
 
@@ -1436,7 +1425,6 @@ func TestAgent_Template_Retry(t *testing.T) {
 	//----------------------------------------------------
 	// Start the server and agent
 	//----------------------------------------------------
-	logger := logging.NewVaultLogger(hclog.Trace)
 	var h handler
 	cluster := vault.NewTestCluster(t,
 		&vault.CoreConfig{
@@ -1574,7 +1562,7 @@ template_config {
 			defer os.Remove(configPath)
 
 			// Start the agent
-			_, cmd := testAgentCommand(t, logger)
+			_, cmd := testAgentCommand(t, corehelpers.NewTestLogger(t).Named("agent"))
 			cmd.startedCh = make(chan struct{})
 
 			wg := &sync.WaitGroup{}
@@ -1724,7 +1712,6 @@ auto_auth {
 // Uses the custom handler userAgentHandler (defined above) so
 // that Vault validates the User-Agent on requests sent by Agent.
 func TestAgent_AutoAuth_UserAgent(t *testing.T) {
-	logger := logging.NewVaultLogger(hclog.Trace)
 	var h userAgentHandler
 	cluster := vault.NewTestCluster(t, &vault.CoreConfig{
 		CredentialBackends: map[string]logical.Factory{
@@ -1803,7 +1790,7 @@ api_proxy {
 	os.Unsetenv(api.EnvVaultAddress)
 
 	// Start the agent
-	_, cmd := testAgentCommand(t, logger)
+	_, cmd := testAgentCommand(t, corehelpers.NewTestLogger(t).Named("agent"))
 	cmd.startedCh = make(chan struct{})
 
 	wg := &sync.WaitGroup{}
@@ -1850,7 +1837,6 @@ api_proxy {
 // userAgentHandler struct defined in this test package, so that Vault validates the
 // User-Agent on requests sent by Agent.
 func TestAgent_APIProxyWithoutCache_UserAgent(t *testing.T) {
-	logger := logging.NewVaultLogger(hclog.Trace)
 	userAgentForProxiedClient := "proxied-client"
 	var h userAgentHandler
 	cluster := vault.NewTestCluster(t, nil, &vault.TestClusterOptions{
@@ -1894,7 +1880,7 @@ vault {
 	defer os.Remove(configPath)
 
 	// Start the agent
-	_, cmd := testAgentCommand(t, logger)
+	_, cmd := testAgentCommand(t, corehelpers.NewTestLogger(t).Named("agent"))
 	cmd.startedCh = make(chan struct{})
 
 	wg := &sync.WaitGroup{}
@@ -1937,7 +1923,6 @@ vault {
 // userAgentHandler struct defined in this test package, so that Vault validates the
 // User-Agent on requests sent by Agent.
 func TestAgent_APIProxyWithCache_UserAgent(t *testing.T) {
-	logger := logging.NewVaultLogger(hclog.Trace)
 	userAgentForProxiedClient := "proxied-client"
 	var h userAgentHandler
 	cluster := vault.NewTestCluster(t, nil, &vault.TestClusterOptions{
@@ -1986,7 +1971,7 @@ vault {
 	defer os.Remove(configPath)
 
 	// Start the agent
-	_, cmd := testAgentCommand(t, logger)
+	_, cmd := testAgentCommand(t, corehelpers.NewTestLogger(t).Named("agent"))
 	cmd.startedCh = make(chan struct{})
 
 	wg := &sync.WaitGroup{}
@@ -2024,7 +2009,6 @@ vault {
 }
 
 func TestAgent_Cache_DynamicSecret(t *testing.T) {
-	logger := logging.NewVaultLogger(hclog.Trace)
 	cluster := vault.NewTestCluster(t, nil, &vault.TestClusterOptions{
 		HandlerFunc: vaulthttp.Handler,
 	})
@@ -2062,7 +2046,7 @@ vault {
 	defer os.Remove(configPath)
 
 	// Start the agent
-	_, cmd := testAgentCommand(t, logger)
+	_, cmd := testAgentCommand(t, corehelpers.NewTestLogger(t).Named("agent"))
 	cmd.startedCh = make(chan struct{})
 
 	wg := &sync.WaitGroup{}
@@ -2132,7 +2116,6 @@ func TestAgent_ApiProxy_Retry(t *testing.T) {
 	//----------------------------------------------------
 	// Start the server and agent
 	//----------------------------------------------------
-	logger := logging.NewVaultLogger(hclog.Trace)
 	var h handler
 	cluster := vault.NewTestCluster(t,
 		&vault.CoreConfig{
@@ -2233,7 +2216,7 @@ vault {
 			defer os.Remove(configPath)
 
 			// Start the agent
-			_, cmd := testAgentCommand(t, logger)
+			_, cmd := testAgentCommand(t, corehelpers.NewTestLogger(t).Named("agent"))
 			cmd.startedCh = make(chan struct{})
 
 			wg := &sync.WaitGroup{}
@@ -2284,7 +2267,6 @@ func TestAgent_TemplateConfig_ExitOnRetryFailure(t *testing.T) {
 	//----------------------------------------------------
 	// Start the server and agent
 	//----------------------------------------------------
-	logger := logging.NewVaultLogger(hclog.Trace)
 	cluster := vault.NewTestCluster(t,
 		&vault.CoreConfig{
 			CredentialBackends: map[string]logical.Factory{
@@ -2497,7 +2479,7 @@ vault {
 			defer os.Remove(configPath)
 
 			// Start the agent
-			ui, cmd := testAgentCommand(t, logger)
+			ui, cmd := testAgentCommand(t, corehelpers.NewTestLogger(t).Named("agent"))
 			cmd.startedCh = make(chan struct{})
 
 			// Channel to let verify() know to stop early if agent
@@ -2612,7 +2594,7 @@ listener "tcp" {
 	defer os.Remove(configPath)
 
 	// Start the agent
-	ui, cmd := testAgentCommand(t, logging.NewVaultLogger(hclog.Trace))
+	ui, cmd := testAgentCommand(t, corehelpers.NewTestLogger(t).Named("agent"))
 	cmd.client = serverClient
 	cmd.startedCh = make(chan struct{})
 
@@ -2708,7 +2690,7 @@ cache {}
 	defer os.Remove(configPath)
 
 	// Start the agent
-	_, cmd := testAgentCommand(t, nil)
+	_, cmd := testAgentCommand(t, corehelpers.NewTestLogger(t).Named("agent"))
 	cmd.startedCh = make(chan struct{})
 
 	wg := &sync.WaitGroup{}
@@ -2914,8 +2896,7 @@ func TestAgent_Config_ReloadTls(t *testing.T) {
 	configFile := populateTempFile(t, "agent-config.hcl", replacedHcl)
 
 	// Set up Agent/cmd
-	logger := logging.NewVaultLogger(hclog.Trace)
-	ui, cmd := testAgentCommand(t, logger)
+	ui, cmd := testAgentCommand(t, corehelpers.NewTestLogger(t).Named("agent"))
 
 	var output string
 	var code int
@@ -3001,7 +2982,6 @@ func TestAgent_Config_ReloadTls(t *testing.T) {
 // without a TLS configuration. Prior to fixing GitHub issue #19480, this
 // would cause a panic.
 func TestAgent_NonTLSListener_SIGHUP(t *testing.T) {
-	logger := logging.NewVaultLogger(hclog.Trace)
 	cluster := vault.NewTestCluster(t, nil, &vault.TestClusterOptions{
 		HandlerFunc: vaulthttp.Handler,
 	})
@@ -3034,7 +3014,7 @@ vault {
 	defer os.Remove(configPath)
 
 	// Start the agent
-	ui, cmd := testAgentCommand(t, logger)
+	ui, cmd := testAgentCommand(t, corehelpers.NewTestLogger(t).Named("agent"))
 
 	cmd.startedCh = make(chan struct{})
 
