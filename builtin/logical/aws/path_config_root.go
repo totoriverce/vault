@@ -60,6 +60,21 @@ func pathConfigRoot(b *backend) *framework.Path {
 				Type:        framework.TypeString,
 				Description: "Role ARN to assume for plugin identity token federation",
 			},
+			"rotation_schedule": {
+				Type: framework.TypeString,
+				Description: "CRON-style string that will define the schedule on which " +
+					"rotations should occur. Mutually exclusive with TTL",
+			},
+			"rotation_window": {
+				Type: framework.TypeInt,
+				Description: "Specifies the amount of time in which the rotation is allowed " +
+					"to occur starting from a given rotation_schedule",
+			},
+			"ttl": {
+				Type: framework.TypeInt,
+				Description: "TTL for automatic credential rotation of the given username. Mutually exclusive " +
+					"with rotation_schedule",
+			},
 		},
 
 		Operations: map[logical.Operation]framework.OperationHandler{
@@ -112,6 +127,20 @@ func (b *backend) pathConfigRootRead(ctx context.Context, req *logical.Request, 
 		"max_retries":       config.MaxRetries,
 		"username_template": config.UsernameTemplate,
 		"role_arn":          config.RoleARN,
+		//"rotation_schedule": config.RotationSchedule,
+		//"rotation_window":   config.RotationWindow,
+		//"ttl":               config.TTL,
+	}
+	if config.RotationWindow != 0 {
+		configData["rotation_window"] = config.RotationWindow
+	}
+
+	if config.RotationSchedule != "" {
+		configData["rotation_schedule"] = config.RotationSchedule
+	}
+
+	if config.TTL != 0 {
+		configData["ttl"] = config.TTL
 	}
 
 	config.PopulatePluginIdentityTokenData(configData)
@@ -130,6 +159,11 @@ func (b *backend) pathConfigRootWrite(ctx context.Context, req *logical.Request,
 	if usernameTemplate == "" {
 		usernameTemplate = defaultUserNameTemplate
 	}
+
+	rotationSchedule := data.Get("rotation_schedule").(string)
+	rotationScheduleOk := rotationSchedule != ""
+	rotationWindow, rotationWindowOk := data.GetOk("rotation_window")
+	ttl, ttlOk := data.GetOk("ttl")
 
 	b.clientMutex.Lock()
 	defer b.clientMutex.Unlock()
@@ -156,6 +190,16 @@ func (b *backend) pathConfigRootWrite(ctx context.Context, req *logical.Request,
 		return logical.ErrorResponse("missing required 'role_arn' when 'identity_token_audience' is set"), nil
 	}
 
+	if rotationScheduleOk {
+		rc.RotationSchedule = rotationSchedule
+	}
+	if rotationWindowOk {
+		rc.RotationWindow = rotationWindow.(int)
+	}
+	if ttlOk {
+		rc.TTL = ttl.(int)
+	}
+
 	entry, err := logical.StorageEntryJSON("config/root", rc)
 	if err != nil {
 		return nil, err
@@ -169,6 +213,42 @@ func (b *backend) pathConfigRootWrite(ctx context.Context, req *logical.Request,
 	// config/root
 	b.iamClient = nil
 	b.stsClient = nil
+
+	var rCred *logical.RootCredential
+	if rotationScheduleOk && ttlOk {
+		return logical.ErrorResponse("mutually exclusive fields rotation_schedule and ttl were both specified; only one of them can be provided"), nil
+	} else if rotationWindowOk && ttlOk {
+		return logical.ErrorResponse("rotation_window does not apply to ttl"), nil
+	} else if rotationScheduleOk && !rotationWindowOk || rotationWindowOk && !rotationScheduleOk {
+		return logical.ErrorResponse("must include both schedule and window"), nil
+	}
+
+	if rotationScheduleOk && rotationWindowOk {
+		rotationWindowSeconds := rotationWindow.(int)
+		rCred, err = logical.GetRootCredential(rotationSchedule, "aws/config/root", "aws-root-creds", rotationWindowSeconds, 0)
+		if err != nil {
+			return logical.ErrorResponse(err.Error()), nil
+		}
+		// unset ttl if rotation_schedule is set since these are mutually exclusive
+		ttl = 0
+	}
+
+	if ttlOk {
+		ttlSeconds := ttl.(int)
+		rCred, err = logical.GetRootCredential("", "aws/config/root", "aws-root-creds", 0, ttlSeconds)
+		if err != nil {
+			return logical.ErrorResponse(err.Error()), nil
+		}
+		rotationSchedule = ""
+		rotationWindow = 0
+	}
+
+	if rCred != nil {
+		b.Logger().Debug("Injecting Root Credential into system backend")
+		return &logical.Response{
+			RootCredential: rCred,
+		}, nil
+	}
 
 	return nil, nil
 }
@@ -184,6 +264,9 @@ type rootConfig struct {
 	MaxRetries       int    `json:"max_retries"`
 	UsernameTemplate string `json:"username_template"`
 	RoleARN          string `json:"role_arn"`
+	RotationSchedule string `json:"rotation_schedule"`
+	RotationWindow   int    `json:"rotation_window"`
+	TTL              int    `json:"ttl"`
 }
 
 const pathConfigRootHelpSyn = `

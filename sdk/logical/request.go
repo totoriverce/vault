@@ -455,6 +455,7 @@ const (
 	RevokeOperation   Operation = "revoke"
 	RenewOperation              = "renew"
 	RollbackOperation           = "rollback"
+	RotationOperation           = "rotate"
 )
 
 type MFACreds map[string][]string

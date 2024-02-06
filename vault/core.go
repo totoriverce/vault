@@ -710,6 +710,8 @@ type Core struct {
 	// Config value for "detect_deadlocks".
 	detectDeadlocks []string
 
+	// the rotation manager handles periodic rotation of credentials
+	rotationManager               *RotationManager
 	echoDuration                  *uberAtomic.Duration
 	activeNodeClockSkewMillis     *uberAtomic.Int64
 	periodicLeaderRefreshInterval time.Duration
@@ -2622,6 +2624,10 @@ func buildUnsealSetupFunctionSlice(c *Core) []func(context.Context) error {
 		setupFunctions = append(setupFunctions, func(_ context.Context) error {
 			return c.setupExpiration(expireLeaseStrategyFairsharing)
 		})
+		setupFunctions = append(setupFunctions, func(_ context.Context) error {
+			c.Logger().Info("Starting Rotation Manager")
+			return c.startRotation()
+		})
 		setupFunctions = append(setupFunctions, c.loadAudits)
 		setupFunctions = append(setupFunctions, c.setupAuditedHeadersConfig)
 		setupFunctions = append(setupFunctions, c.setupAudits)
@@ -2858,6 +2864,10 @@ func (c *Core) preSeal() error {
 	}
 	if err := c.stopExpiration(); err != nil {
 		result = multierror.Append(result, fmt.Errorf("error stopping expiration: %w", err))
+	}
+
+	if err := c.stopRotation(); err != nil {
+		result = multierror.Append(result, fmt.Errorf("error stopping rotation: %w", err))
 	}
 	c.stopActivityLog()
 	// Clean up census on seal

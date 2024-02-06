@@ -18,13 +18,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/go-kms-wrapping/entropy/v2"
-
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/hashicorp/errwrap"
 	log "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/go-kms-wrapping/entropy/v2"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/go-secure-stdlib/parseutil"
+
 	"github.com/hashicorp/vault/sdk/helper/consts"
 	"github.com/hashicorp/vault/sdk/helper/errutil"
 	"github.com/hashicorp/vault/sdk/helper/license"
@@ -108,6 +108,9 @@ type Backend struct {
 
 	// RunningVersion is the optional version that will be self-reported
 	RunningVersion string
+
+	// Functions for rotating the root password of a backend if it exists
+	RotatePassword func(context.Context, *logical.Request) error // specific backend developer responsible for handling basically everything
 
 	logger  log.Logger
 	system  logical.SystemView
@@ -217,6 +220,9 @@ func (b *Backend) HandleRequest(ctx context.Context, req *logical.Request) (*log
 		return b.handleRevokeRenew(ctx, req)
 	case logical.RollbackOperation:
 		return b.handleRollback(ctx, req)
+	case logical.RotationOperation:
+		b.logger.Info("rotating")
+		return b.handleRotation(ctx, req)
 	}
 
 	// If the path is empty and it is a help operation, handle that.
@@ -660,6 +666,19 @@ func (b *Backend) handleRollback(ctx context.Context, req *logical.Request) (*lo
 		}
 	}
 	return resp, merr.ErrorOrNil()
+}
+
+// handleRotation invokes the RotatePassword func set on the backend.
+func (b *Backend) handleRotation(ctx context.Context, req *logical.Request) (*logical.Response, error) {
+	if b.RotatePassword == nil {
+		return nil, logical.ErrUnsupportedOperation
+	}
+
+	err := b.RotatePassword(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &logical.Response{}, nil
 }
 
 func (b *Backend) handleAuthRenew(ctx context.Context, req *logical.Request) (*logical.Response, error) {

@@ -54,6 +54,21 @@ func pathConfig(b *backend) *framework.Path {
 		Description: "Password policy to use to rotate the root password",
 	}
 
+	p.Fields["rotation_schedule"] = &framework.FieldSchema{
+		Type:        framework.TypeString,
+		Description: "CRON-style string that will define the schedule on which rotations should occur. Mutually exclusive with TTL",
+	}
+
+	p.Fields["rotation_window"] = &framework.FieldSchema{
+		Type:        framework.TypeInt,
+		Description: "Specifies the amount of time in which the rotation is allowed to occur starting from a given rotation_schedule",
+	}
+
+	p.Fields["ttl"] = &framework.FieldSchema{
+		Type:        framework.TypeInt,
+		Description: "TTL for automatic credential rotation of the given username. Mutually exclusive with rotation_schedule",
+	}
+
 	return p
 }
 
@@ -109,6 +124,15 @@ func (b *backend) Config(ctx context.Context, req *logical.Request) (*ldapConfig
 		*result.UsePre111GroupCNBehavior = true
 		persistNeeded = true
 	}
+
+	// leave these blank if unset, which would mean no rotation at all
+	//if result.RotationSchedule == "" {
+	//	result.RotationSchedule = "0 0 0 0 0"
+	//}
+
+	//if result.RotationWindow == 0 {
+	//	// default rotation windoe
+	//}
 
 	if persistNeeded && (b.System().LocalMount() || !b.System().ReplicationState().HasState(consts.ReplicationPerformanceSecondary|consts.ReplicationPerformanceStandby)) {
 		entry, err := logical.StorageEntryJSON("config", result)
@@ -211,6 +235,49 @@ func (b *backend) pathConfigWrite(ctx context.Context, req *logical.Request, d *
 		cfg.PasswordPolicy = passwordPolicy.(string)
 	}
 
+	ttl, ttlOk := d.GetOk("ttl")
+	rotationSchedule, rotationScheduleOk := d.GetOk("rotation_schedule")
+	rotationWindow, rotationWindowOk := d.GetOk("rotation_window")
+
+	var rc *logical.RootCredential
+	if rotationScheduleOk && ttlOk {
+		return logical.ErrorResponse("mutually exclusive fields rotation_schedule and ttl were both specified; only one of them can be provided"), nil
+	} else if rotationWindowOk && ttlOk {
+		return logical.ErrorResponse("rotation_window does not apply to ttl"), nil
+	} else if rotationScheduleOk && !rotationWindowOk || rotationWindowOk && !rotationScheduleOk {
+		return logical.ErrorResponse("must include both rotation_schedule and rotation_window"), nil
+	}
+
+	if rotationScheduleOk && rotationWindowOk {
+		cfg.RotationSchedule = rotationSchedule.(string)
+		cfg.RotationWindow = rotationWindow.(int)
+
+		rc, err = logical.GetRootCredential(cfg.RotationSchedule, "ldap/config",
+			"ldap-root-creds", cfg.RotationWindow, 0)
+		if err != nil {
+			return logical.ErrorResponse(err.Error()), nil
+		}
+		// unset ttl if rotation_schedule is set since these are mutually exclusive
+		cfg.TTL = 0
+
+		b.Logger().Info("rotation", "window", cfg.RotationWindow, "schedule", cfg.RotationSchedule, "ttl", cfg.TTL)
+	}
+
+	if ttlOk {
+		cfg.TTL = ttl.(int)
+
+		rc, err = logical.GetRootCredential("", "ldap/config",
+			"ldap-root-creds", 0, cfg.TTL)
+		if err != nil {
+			return logical.ErrorResponse(err.Error()), nil
+		}
+
+		cfg.RotationSchedule = ""
+		cfg.RotationWindow = 0
+
+		b.Logger().Info("rotation", "window", cfg.RotationWindow, "schedule", cfg.RotationSchedule, "ttl", cfg.TTL)
+	}
+
 	entry, err := logical.StorageEntryJSON("config", cfg)
 	if err != nil {
 		return nil, err
@@ -225,7 +292,13 @@ func (b *backend) pathConfigWrite(ctx context.Context, req *logical.Request, d *
 		}, nil
 	}
 
-	return nil, nil
+	if rc != nil {
+		return &logical.Response{
+			RootCredential: rc,
+		}, nil
+	} else {
+		return nil, nil
+	}
 }
 
 /*
@@ -252,7 +325,12 @@ type ldapConfigEntry struct {
 	tokenutil.TokenParams
 	*ldaputil.ConfigEntry
 
-	PasswordPolicy string `json:"password_policy"`
+	PasswordPolicy   string `json:"password_policy"`
+	RotationSchedule string `json:"rotation_schedule"`
+	RotationWindow   int    `json:"rotation_window"`
+	TTL              int    `json:"ttl"`
+
+	rotationID string // used to track the rotation entry in the rotation manager for the root password
 }
 
 const pathConfigHelpSyn = `
