@@ -49,7 +49,7 @@ require (
 	github.com/armon/go-metrics v0.4.1
 	github.com/armon/go-radix v1.0.0
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
-	github.com/aws/aws-sdk-go v1.50.13
+	github.com/aws/aws-sdk-go v1.51.32
 	github.com/aws/aws-sdk-go-v2/config v1.18.19
 	github.com/axiomhq/hyperloglog v0.0.0-20220105174342-98591331716a
 	github.com/cenkalti/backoff/v3 v3.2.2
@@ -90,7 +90,7 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.2
 	github.com/hashicorp/go-discover v0.0.0-20210818145131-c573d69da192
 	github.com/hashicorp/go-gcp-common v0.8.0
-	github.com/hashicorp/go-hclog v1.6.2
+	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-kms-wrapping/entropy/v2 v2.0.1
 	github.com/hashicorp/go-kms-wrapping/v2 v2.0.16
 	github.com/hashicorp/go-kms-wrapping/wrappers/aead/v2 v2.0.9
@@ -148,7 +148,7 @@ require (
 	github.com/hashicorp/vault-plugin-database-elasticsearch v0.14.0
 	github.com/hashicorp/vault-plugin-database-mongodbatlas v0.11.0
 	github.com/hashicorp/vault-plugin-database-redis v0.2.3
-	github.com/hashicorp/vault-plugin-database-redis-elasticache v0.3.0
+	github.com/hashicorp/vault-plugin-database-redis-elasticache v0.3.1-0.20240501002231-dc29b2c5ca73
 	github.com/hashicorp/vault-plugin-database-snowflake v0.10.0
 	github.com/hashicorp/vault-plugin-mock v0.16.1
 	github.com/hashicorp/vault-plugin-secrets-ad v0.17.0
@@ -165,7 +165,7 @@ require (
 	github.com/hashicorp/vault/api v1.12.0
 	github.com/hashicorp/vault/api/auth/approle v0.1.0
 	github.com/hashicorp/vault/api/auth/userpass v0.1.0
-	github.com/hashicorp/vault/sdk v0.11.0
+	github.com/hashicorp/vault/sdk v0.12.0
 	github.com/hashicorp/vault/vault/hcp_link/proto v0.0.0-20230201201504-b741fa893d77
 	github.com/influxdata/influxdb1-client v0.0.0-20200827194710-b269163b24ab
 	github.com/jackc/pgx/v4 v4.18.3

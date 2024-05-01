@@ -1407,8 +1407,8 @@ github.com/aws/aws-sdk-go v1.25.41/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpi
 github.com/aws/aws-sdk-go v1.34.0/go.mod h1:5zCpMtNQVjRREroY7sYe8lOMRSxkhG6MZveU8YkpAk0=
 github.com/aws/aws-sdk-go v1.36.29/go.mod h1:hcU610XS61/+aQV88ixoOzUoG7v3b31pl2zKMmprdro=
 github.com/aws/aws-sdk-go v1.43.16/go.mod h1:y4AeaBuwd2Lk+GepC1E9v0qOiTws0MIWAX4oIKwKHZo=
-github.com/aws/aws-sdk-go v1.50.13 h1:yeXram2g7q8uKkQkAEeZyk9FmPzxI4UpGwAZGZtEGmM=
-github.com/aws/aws-sdk-go v1.50.13/go.mod h1:LF8svs817+Nz+DmiMQKTO3ubZ/6IaTpq3TjupRn3Eqk=
+github.com/aws/aws-sdk-go v1.51.32 h1:A6mPui7QP4mwmovyzgtdedbRbNur1Iu0/El7hBWNHms=
+github.com/aws/aws-sdk-go v1.51.32/go.mod h1:LF8svs817+Nz+DmiMQKTO3ubZ/6IaTpq3TjupRn3Eqk=
 github.com/aws/aws-sdk-go-v2 v1.17.7/go.mod h1:uzbQtefpm44goOPmdKyAlXSNcwlRgF3ePWVW6EtJvvw=
 github.com/aws/aws-sdk-go-v2 v1.23.4 h1:2P20ZjH0ouSAu/6yZep8oCmTReathLuEu6dwoqEgjts=
 github.com/aws/aws-sdk-go-v2 v1.23.4/go.mod h1:t3szzKfP0NeRU27uBFczDivYJjsmSnqI8kIvKyWb9ds=
@@ -2363,8 +2363,9 @@ github.com/hashicorp/go-hclog v0.14.1/go.mod h1:whpDNt7SSdeAju8AWKIWsul05p54N/39
 github.com/hashicorp/go-hclog v0.16.2/go.mod h1:whpDNt7SSdeAju8AWKIWsul05p54N/39EeqMAyrmvFQ=
 github.com/hashicorp/go-hclog v1.0.0/go.mod h1:whpDNt7SSdeAju8AWKIWsul05p54N/39EeqMAyrmvFQ=
 github.com/hashicorp/go-hclog v1.5.0/go.mod h1:W4Qnvbt70Wk/zYJryRzDRU/4r0kIg0PVHBcfoyhpF5M=
-github.com/hashicorp/go-hclog v1.6.2 h1:NOtoftovWkDheyUM/8JW3QMiXyxJK3uHRK7wV04nD2I=
 github.com/hashicorp/go-hclog v1.6.2/go.mod h1:W4Qnvbt70Wk/zYJryRzDRU/4r0kIg0PVHBcfoyhpF5M=
+github.com/hashicorp/go-hclog v1.6.3 h1:Qr2kF+eVWjTiYmU7Y31tYlP1h0q/X3Nl3tPGdaB11/k=
+github.com/hashicorp/go-hclog v1.6.3/go.mod h1:W4Qnvbt70Wk/zYJryRzDRU/4r0kIg0PVHBcfoyhpF5M=
 github.com/hashicorp/go-immutable-radix v1.0.0/go.mod h1:0y9vanUI8NX6FsYoO3zeMjhV/C5i9g4Q3DwcSNZ4P60=
 github.com/hashicorp/go-immutable-radix v1.3.0/go.mod h1:0y9vanUI8NX6FsYoO3zeMjhV/C5i9g4Q3DwcSNZ4P60=
 github.com/hashicorp/go-immutable-radix v1.3.1 h1:DKHmCUm2hRBK510BaiZlwvpD40f8bJFeZnpfm2KLowc=
@@ -2543,8 +2544,8 @@ github.com/hashicorp/vault-plugin-database-mongodbatlas v0.11.0 h1:DNIwrmviDOq/B
 github.com/hashicorp/vault-plugin-database-mongodbatlas v0.11.0/go.mod h1:DTrqLTHGxHVPudf4OUnxA3RPFDYwDzvTPuGinok/sH8=
 github.com/hashicorp/vault-plugin-database-redis v0.2.3 h1:Tp/gxLv1XysUgmaufzm9UbP82wZSp8D6nmLw7NqXS8E=
 github.com/hashicorp/vault-plugin-database-redis v0.2.3/go.mod h1:VdBXwRbeN597kcmBptvfPRD55BjrExEFEMPOK+NjH5M=
-github.com/hashicorp/vault-plugin-database-redis-elasticache v0.3.0 h1:8sNYuHOxpUxcq1pxhR4HdYfZIaeEVCiWV5lV25u10ic=
-github.com/hashicorp/vault-plugin-database-redis-elasticache v0.3.0/go.mod h1:IoJwgHiY1vvIbBWO/lidH6wN85jVGnY4k78tZe1jctU=
+github.com/hashicorp/vault-plugin-database-redis-elasticache v0.3.1-0.20240501002231-dc29b2c5ca73 h1:aVB7m9LeAtGZs0jW563e6GZAYvUz2xQU9Vljw02FLJ0=
+github.com/hashicorp/vault-plugin-database-redis-elasticache v0.3.1-0.20240501002231-dc29b2c5ca73/go.mod h1:9x/IX9ZPiFqyhpb/YBns2ZoYCdzWrzHjXbU97FLBTeg=
 github.com/hashicorp/vault-plugin-database-snowflake v0.10.0 h1:XmGY3YsEwhs/LHHO6I9MmiHcI0peL31cQCbHMCniMro=
 github.com/hashicorp/vault-plugin-database-snowflake v0.10.0/go.mod h1:COMbAUyRr1KgNLv0R3n0/olFoy3JkXq57VYd5+9ulPw=
 github.com/hashicorp/vault-plugin-mock v0.16.1 h1:5QQvSUHxDjEEbrd2REOeacqyJnCLPD51IQzy71hx8P0=
