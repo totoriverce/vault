@@ -1,0 +1,106 @@
+vault-plugin-auth-alicloud in minimal
+
+.//command/agent/alicloud_end_to_end_test.go:	vaultalicloud "github.com/hashicorp/vault-plugin-auth-alicloud"
+.//command/commands.go:	credAliCloud "github.com/hashicorp/vault-plugin-auth-alicloud"
+.//helper/builtinplugins/registry.go:	credAliCloud "github.com/hashicorp/vault-plugin-auth-alicloud"
+
+vault-plugin-auth-azure NOT in minimal
+
+.//helper/builtinplugins/registry.go:	credAzure "github.com/hashicorp/vault-plugin-auth-azure"
+
+vault-plugin-auth-gcp NOT in minimal
+
+
+
+vault-plugin-auth-jwt in minimal
+
+.//command/agent/jwt_end_to_end_test.go:	vaultjwt "github.com/hashicorp/vault-plugin-auth-jwt"
+.//command/agent_test.go:	vaultjwt "github.com/hashicorp/vault-plugin-auth-jwt"
+.//command/proxy_test.go:	vaultjwt "github.com/hashicorp/vault-plugin-auth-jwt"
+.//command/commands.go:	credOIDC "github.com/hashicorp/vault-plugin-auth-jwt"
+.//helper/builtinplugins/registry.go:	credJWT "github.com/hashicorp/vault-plugin-auth-jwt"
+
+vault-plugin-auth-kubernetes NOT in minimal
+
+.//helper/builtinplugins/registry.go:	credKube "github.com/hashicorp/vault-plugin-auth-kubernetes"
+
+vault-plugin-auth-oci in minimal
+
+.//command/agent/oci_end_to_end_test.go:	vaultoci "github.com/hashicorp/vault-plugin-auth-oci"
+.//command/commands.go:	credOCI "github.com/hashicorp/vault-plugin-auth-oci"
+.//helper/builtinplugins/registry.go:	credOCI "github.com/hashicorp/vault-plugin-auth-oci"
+
+vault-plugin-database-couchbase NOT in minimal
+
+.//helper/builtinplugins/registry.go:	dbCouchbase "github.com/hashicorp/vault-plugin-database-couchbase"
+
+vault-plugin-database-elasticsearch NOT in minimal
+
+.//helper/builtinplugins/registry.go:	dbElastic "github.com/hashicorp/vault-plugin-database-elasticsearch"
+
+vault-plugin-database-mongodbatlas NOT in minimal
+
+.//helper/builtinplugins/registry.go:	dbMongoAtlas "github.com/hashicorp/vault-plugin-database-mongodbatlas"
+
+vault-plugin-database-oracle NOT in minimal
+
+
+
+vault-plugin-database-redis NOT in minimal
+
+.//helper/builtinplugins/registry.go:	dbRedis "github.com/hashicorp/vault-plugin-database-redis"
+
+vault-plugin-database-redis-elasticache NOT in minimal
+
+.//helper/builtinplugins/registry.go:	dbRedisElastiCache "github.com/hashicorp/vault-plugin-database-redis-elasticache"
+
+vault-plugin-secrets-ad NOT in minimal
+
+
+
+vault-plugin-secrets-alicloud NOT in minimal
+
+.//helper/builtinplugins/registry.go:	logicalAlicloud "github.com/hashicorp/vault-plugin-secrets-alicloud"
+
+vault-plugin-secrets-azure NOT in minimal
+
+.//helper/builtinplugins/registry.go:	logicalAzure "github.com/hashicorp/vault-plugin-secrets-azure"
+
+vault-plugin-secrets-gcp NOT in minimal
+
+
+
+vault-plugin-secrets-kubernetes NOT in minimal
+
+.//helper/builtinplugins/registry.go:	logicalKube "github.com/hashicorp/vault-plugin-secrets-kubernetes"
+
+vault-plugin-secrets-kv in minimal
+
+.//http/logical_test.go:	kv "github.com/hashicorp/vault-plugin-secrets-kv"
+.//http/unwrapping_raw_body_test.go:	kv "github.com/hashicorp/vault-plugin-secrets-kv"
+.//command/command_test.go:	kv "github.com/hashicorp/vault-plugin-secrets-kv"
+.//command/agentproxyshared/cache/cache_test.go:	kv "github.com/hashicorp/vault-plugin-secrets-kv"
+.//command/agentproxyshared/cache/static_secret_cache_updater_test.go:	kv "github.com/hashicorp/vault-plugin-secrets-kv"
+.//command/agent_test.go:	logicalKv "github.com/hashicorp/vault-plugin-secrets-kv"
+.//command/proxy_test.go:	logicalKv "github.com/hashicorp/vault-plugin-secrets-kv"
+.//command/commands.go:	logicalKv "github.com/hashicorp/vault-plugin-secrets-kv"
+.//helper/builtinplugins/registry.go:	logicalKv "github.com/hashicorp/vault-plugin-secrets-kv"
+.//helper/builtinplugins/builtinplugins_test.go:	logicalKv "github.com/hashicorp/vault-plugin-secrets-kv"
+.//helper/testhelpers/minimal/minimal.go:	logicalKv "github.com/hashicorp/vault-plugin-secrets-kv"
+.//helper/testhelpers/teststorage/teststorage.go:	logicalKv "github.com/hashicorp/vault-plugin-secrets-kv"
+.//vault/core_test.go:	logicalKv "github.com/hashicorp/vault-plugin-secrets-kv"
+.//vault/core.go:	kv "github.com/hashicorp/vault-plugin-secrets-kv"
+.//vault/external_tests/kv/kvv2_upgrade_test.go:	logicalKv "github.com/hashicorp/vault-plugin-secrets-kv"
+.//vault/external_tests/api/kv_helpers_test.go:	logicalKv "github.com/hashicorp/vault-plugin-secrets-kv"
+.//vault/external_tests/api/kv_test.go:	kv "github.com/hashicorp/vault-plugin-secrets-kv"
+.//vault/core_metrics_test.go:	logicalKv "github.com/hashicorp/vault-plugin-secrets-kv"
+.//vault/testing.go:	kv "github.com/hashicorp/vault-plugin-secrets-kv"
+
+vault-plugin-secrets-openldap NOT in minimal
+
+.//helper/builtinplugins/registry.go:	logicalLDAP "github.com/hashicorp/vault-plugin-secrets-openldap"
+
+vault-plugin-secrets-terraform NOT in minimal
+
+.//helper/builtinplugins/registry.go:	logicalTerraform "github.com/hashicorp/vault-plugin-secrets-terraform"
+
