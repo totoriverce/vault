@@ -120,11 +120,15 @@ module('Acceptance | sync | overview', function (hooks) {
       assert.dom(ts.overview.optInBanner).exists();
       await click(ts.overview.optInBannerEnable);
 
-      assert.dom(ts.overview.optInModal).exists('modal to opt-in and activate feature is shown');
-      await click(ts.overview.optInCheck);
-      await click(ts.overview.optInConfirm);
+      assert
+        .dom(ts.overview.activationModal.container)
+        .exists('modal to opt-in and activate feature is shown');
+      await click(ts.overview.activationModal.checkbox);
+      await click(ts.overview.activationModal.confirm);
 
-      assert.dom(ts.overview.optInModal).doesNotExist('modal is gone once activation has been submitted');
+      assert
+        .dom(ts.overview.activationModal.container)
+        .doesNotExist('modal is gone once activation has been submitted');
       assert
         .dom(ts.overview.optInBanner)
         .doesNotExist('opt-in banner is gone once activation has been submitted');
@@ -173,8 +177,8 @@ module('Acceptance | sync | overview', function (hooks) {
 
       await click(ts.navLink('Secrets Sync'));
       await click(ts.overview.optInBannerEnable);
-      await click(ts.overview.optInCheck);
-      await click(ts.overview.optInConfirm);
+      await click(ts.overview.activationModal.checkbox);
+      await click(ts.overview.activationModal.confirm);
     });
 
     test('it should make activation-flag requests to correct namespace when managed', async function (assert) {
@@ -204,8 +208,8 @@ module('Acceptance | sync | overview', function (hooks) {
 
       await click(ts.navLink('Secrets Sync'));
       await click(ts.overview.optInBannerEnable);
-      await click(ts.overview.optInCheck);
-      await click(ts.overview.optInConfirm);
+      await click(ts.overview.activationModal.checkbox);
+      await click(ts.overview.activationModal.confirm);
     });
   });
 });
