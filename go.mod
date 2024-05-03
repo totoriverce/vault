@@ -90,7 +90,7 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.2
 	github.com/hashicorp/go-discover v0.0.0-20210818145131-c573d69da192
 	github.com/hashicorp/go-gcp-common v0.8.0
-	github.com/hashicorp/go-hclog v1.6.2
+	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-kms-wrapping/entropy/v2 v2.0.1
 	github.com/hashicorp/go-kms-wrapping/v2 v2.0.16
 	github.com/hashicorp/go-kms-wrapping/wrappers/aead/v2 v2.0.9
@@ -157,15 +157,15 @@ require (
 	github.com/hashicorp/vault-plugin-secrets-gcp v0.18.0
 	github.com/hashicorp/vault-plugin-secrets-gcpkms v0.16.0
 	github.com/hashicorp/vault-plugin-secrets-kubernetes v0.7.0
-	github.com/hashicorp/vault-plugin-secrets-kv v0.17.0
+	github.com/hashicorp/vault-plugin-secrets-kv v0.17.1-0.20240501001015-7f81dd046698
 	github.com/hashicorp/vault-plugin-secrets-mongodbatlas v0.11.0
 	github.com/hashicorp/vault-plugin-secrets-openldap v0.12.1
 	github.com/hashicorp/vault-plugin-secrets-terraform v0.7.5
 	github.com/hashicorp/vault-testing-stepwise v0.1.4
-	github.com/hashicorp/vault/api v1.12.0
+	github.com/hashicorp/vault/api v1.13.0
 	github.com/hashicorp/vault/api/auth/approle v0.1.0
 	github.com/hashicorp/vault/api/auth/userpass v0.1.0
-	github.com/hashicorp/vault/sdk v0.11.0
+	github.com/hashicorp/vault/sdk v0.12.0
 	github.com/hashicorp/vault/vault/hcp_link/proto v0.0.0-20230201201504-b741fa893d77
 	github.com/influxdata/influxdb1-client v0.0.0-20200827194710-b269163b24ab
 	github.com/jackc/pgx/v4 v4.18.3
@@ -230,7 +230,7 @@ require (
 	golang.org/x/tools v0.18.0
 	google.golang.org/api v0.163.0
 	google.golang.org/grpc v1.61.1
-	google.golang.org/protobuf v1.33.0
+	google.golang.org/protobuf v1.34.0
 	gopkg.in/ory-am/dockertest.v3 v3.3.4
 	k8s.io/apimachinery v0.29.1
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
