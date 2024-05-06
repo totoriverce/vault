@@ -35,7 +35,7 @@ export default class SyncSecretsDestinationsPageComponent extends Component<Args
   @tracked page = 1;
   @tracked showActivateSecretsSyncModal = false;
   @tracked hasConfirmedDocs = false;
-  @tracked error = null;
+  @tracked activationError: null | string = null;
   // eventually remove when we deal with permissions on activation-features
   @tracked hideOptIn = false;
   @tracked hideError = false;
@@ -62,25 +62,12 @@ export default class SyncSecretsDestinationsPageComponent extends Component<Args
     }
   });
 
+  onModalError(errorMsg: string) {
+    this.activationError = errorMsg;
+  }
+
   @action
   resetOptInModal() {
     this.showActivateSecretsSyncModal = false;
-    this.hasConfirmedDocs = false;
-  }
-
-  @task
-  @waitFor
-  *onFeatureConfirm() {
-    try {
-      yield this.store
-        .adapterFor('application')
-        .ajax('/v1/sys/activation-flags/secrets-sync/activate', 'POST');
-      this.router.transitionTo('vault.cluster.sync.secrets.overview');
-    } catch (error) {
-      this.error = errorMessage(error);
-      this.flashMessages.danger(`Error enabling feature \n ${errorMessage(error)}`);
-    } finally {
-      this.resetOptInModal();
-    }
   }
 }

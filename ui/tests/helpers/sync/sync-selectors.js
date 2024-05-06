@@ -53,9 +53,13 @@ export const PAGE = {
   overview: {
     optInBanner: '[data-test-secrets-sync-opt-in-banner]',
     optInBannerEnable: '[data-test-secrets-sync-opt-in-banner-enable]',
-    optInModal: '[data-test-secrets-sync-opt-in-modal]',
-    optInCheck: '[data-test-opt-in-check]',
-    optInConfirm: '[data-test-opt-in-confirm]',
+    activationModal: {
+      container: '[data-test-secrets-sync-opt-in-modal]',
+      checkbox: '[data-test-opt-in-check]',
+      confirm: '[data-test-opt-in-confirm]',
+      cancel: '[data-test-opt-in-cancel]',
+      error: '[data-test-opt-in-error]',
+    },
     optInCancel: '[data-test-opt-in-cancel]',
     optInError: '[data-test-opt-in-error]',
     createDestination: '[data-test-create-destination]',
