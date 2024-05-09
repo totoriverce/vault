@@ -472,7 +472,12 @@ func (b *backend) pathSignWrite(ctx context.Context, req *logical.Request, d *fr
 			if batchInputRaw != nil {
 				response[i].Error = err.Error()
 			}
-			response[i].err = err
+			switch err.(type) {
+			case errutil.UserError:
+				response[i].err = logical.ErrInvalidRequest
+			default:
+				response[i].err = err
+			}
 		} else if sig == nil {
 			response[i].err = fmt.Errorf("signature could not be computed")
 		} else {
@@ -480,7 +485,6 @@ func (b *backend) pathSignWrite(ctx context.Context, req *logical.Request, d *fr
 			if keyVersion == 0 {
 				keyVersion = p.LatestVersion
 			}
-
 			response[i].Signature = sig.Signature
 			response[i].PublicKey = sig.PublicKey
 			response[i].KeyVersion = keyVersion
@@ -502,7 +506,6 @@ func (b *backend) pathSignWrite(ctx context.Context, req *logical.Request, d *fr
 			if response[0].Error != "" {
 				return logical.ErrorResponse(response[0].Error), response[0].err
 			}
-
 			return nil, response[0].err
 		}
 
