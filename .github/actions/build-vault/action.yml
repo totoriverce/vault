@@ -148,6 +148,12 @@ runs:
         name: ${{ steps.metadata.outputs.artifact-basename }}.zip
         path: out/${{ steps.metadata.outputs.artifact-basename }}.zip
         if-no-files-found: error
+    - name: Copy license file
+      env:
+        LICENSE_DIR: ".release/linux/package/usr/share/doc/${{ inputs.package-name }}"
+      shell: bash
+      run: |
+        mkdir -p "$LICENSE_DIR" && cp LICENSE "$LICENSE_DIR/LICENSE.txt"
     - if: inputs.create-packages == 'true'
       uses: hashicorp/actions-packaging-linux@33f7d23b14f24e6a7b7d9948cb7f5caca2045ee3
       with:
