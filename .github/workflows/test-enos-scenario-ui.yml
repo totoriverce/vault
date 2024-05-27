@@ -109,7 +109,7 @@ jobs:
           sudo apt install -y libnss3-dev libgdk-pixbuf2.0-dev libgtk-3-dev libxss-dev libasound2
       - name: Install Chrome
         if: steps.chrome-check.outputs.chrome-version == 'not-installed'
-        uses: browser-actions/setup-chrome@361a23fcf94a523a91c9cfae6f11c2a5c2d87f64 # v1.6.1
+        uses: browser-actions/setup-chrome@c1191dc4e79dcd91be7b16302e04460c20a2a784 # v1.7.0
       - name: Installed Chrome Version
         run: |
           echo "Installed Chrome Version = [$(chrome --version 2> /dev/null || google-chrome --version 2> /dev/null || google-chrome-stable --version 2> /dev/null)]"
